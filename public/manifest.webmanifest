@@ -1,0 +1,24 @@
+﻿{
+  "name": "Southstyle Suki Points",
+  "short_name": "Southstyle",
+  "description": "RFID and QR loyalty points for Southstyle printing customers",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b120d",
+  "theme_color": "#078b3e",
+  "icons": [
+    {
+      "src": "/southstyle-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/southstyle-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
