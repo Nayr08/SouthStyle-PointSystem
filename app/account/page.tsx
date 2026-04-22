@@ -1,6 +1,8 @@
 'use client';
 
 import BottomNav from '@/components/BottomNav';
+import { AccountSkeleton } from '@/components/Skeletons';
+import { useDemoLoading } from '@/components/useDemoLoading';
 import Link from 'next/link';
 import { ArrowRight, Gift, History, LogOut, QrCode } from 'lucide-react';
 
@@ -44,11 +46,17 @@ const accountActions = [
 ];
 
 export default function AccountPage() {
+  const isLoading = useDemoLoading();
+
+  if (isLoading) {
+    return <AccountSkeleton />;
+  }
+
   return (
     <>
-      <main className="phone-shell bg-white pb-28">
+      <main className="animate-page phone-shell bg-white pb-28">
         <header className="px-5 pt-8 text-white">
-          <section className="green-hero mx-auto max-w-[390px] rounded-[28px] border border-white/25 p-5 shadow-2xl shadow-green-950/25">
+          <section className="animate-rise tap-card green-hero mx-auto max-w-[390px] rounded-[28px] border border-white/25 p-5 shadow-2xl shadow-green-950/25">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="truncate text-2xl font-black tracking-tight">{customer.name}</h1>
@@ -75,7 +83,7 @@ export default function AccountPage() {
         </header>
 
         <section className="px-5 pt-6">
-          <div className="space-y-3">
+          <div className="stagger space-y-3">
             {accountActions.map((item) => {
               const Icon = item.icon;
 
@@ -83,7 +91,7 @@ export default function AccountPage() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="flex items-center gap-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm"
+                  className="tap-card flex items-center gap-4 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm"
                 >
                   <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-ss-green text-white">
                     <Icon size={24} />
@@ -98,7 +106,7 @@ export default function AccountPage() {
             })}
           </div>
 
-          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-black text-rose-600">
+          <button className="tap-button mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-black text-rose-600">
             <LogOut size={18} />
             Logout
           </button>

@@ -22,7 +22,7 @@ const tierBadgeStyles: Record<TierName, string> = {
 
 export function PointsDisplay({ points, memberSince, tier = 'Platinum' }: PointsDisplayProps) {
   return (
-    <div className="-mb-16 overflow-hidden rounded-3xl border border-white/25 bg-white/12 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
+    <div className="animate-rise tap-card -mb-16 overflow-hidden rounded-3xl border border-white/25 bg-white/12 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
       <div className="relative p-5">
         <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/15 blur-sm" />
         <div className="absolute -bottom-14 left-16 h-28 w-28 rounded-full bg-emerald-300/15 blur-sm" />

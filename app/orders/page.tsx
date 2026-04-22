@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import BottomNav from '@/components/BottomNav';
+import { RedeemSkeleton } from '@/components/Skeletons';
+import { useDemoLoading } from '@/components/useDemoLoading';
 import {
   ArrowLeft,
   ArrowRight,
@@ -89,7 +91,7 @@ function RedeemHistoryItem({ item }: { item: (typeof redeemHistory)[number] }) {
   const iconClass = item.type === 'coupon' ? 'from-emerald-100 to-teal-100 text-emerald-700' : 'from-rose-100 to-orange-100 text-rose-700';
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="tap-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex gap-4">
         <div className={`h-fit rounded-xl bg-gradient-to-br ${iconClass} p-3`}>
           <Icon size={20} />
@@ -110,24 +112,29 @@ function RedeemHistoryItem({ item }: { item: (typeof redeemHistory)[number] }) {
 }
 
 export default function OrdersPage() {
+  const isLoading = useDemoLoading();
   const [showHistory, setShowHistory] = useState(false);
   const [selectedReward, setSelectedReward] = useState<(typeof rewards)[number] | null>(null);
 
+  if (isLoading) {
+    return <RedeemSkeleton />;
+  }
+
   return (
     <>
-      <main className="phone-shell bg-white pb-28">
-        <header className="green-hero rounded-b-[30px] px-5 pb-14 pt-5 text-white">
+      <main className="animate-page phone-shell bg-white pb-28">
+        <header className="animate-hero green-hero rounded-b-[30px] px-5 pb-14 pt-5 text-white">
           <div className="mb-5 flex items-center justify-between">
-            <Link href="/" className="grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 backdrop-blur">
+            <Link href="/" className="tap-button grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 backdrop-blur">
               <ArrowLeft size={20} />
             </Link>
             <h1 className="text-lg font-black">Redeem Points</h1>
-            <button className="grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 backdrop-blur" title="Rewards">
+            <button className="tap-button grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 backdrop-blur" title="Rewards">
               <Gift size={19} />
             </button>
           </div>
 
-          <div className="overflow-hidden rounded-[26px] border border-white/25 bg-white/12 p-4 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
+          <div className="animate-rise tap-card overflow-hidden rounded-[26px] border border-white/25 bg-white/12 p-4 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">Available Points</p>
             <div className="mt-2 flex items-end gap-2">
               <strong className="text-[34px] font-black leading-none tracking-tight text-white">
@@ -147,14 +154,14 @@ export default function OrdersPage() {
             </div>
           </div>
 
-          <div className="-mx-5 mb-7 flex gap-3 overflow-x-auto px-5 pb-2 hide-scrollbar">
+          <div className="stagger -mx-5 mb-7 flex gap-3 overflow-x-auto px-5 pb-2 hide-scrollbar">
             {rewards.map((reward) => {
               const Icon = reward.icon;
               return (
                 <button
                   key={reward.id}
                   onClick={() => setSelectedReward(reward)}
-                  className={`min-h-[178px] min-w-[248px] rounded-[26px] bg-gradient-to-br ${reward.cardClass} p-5 text-left text-white shadow-xl shadow-emerald-900/15`}
+                  className={`tap-card min-h-[178px] min-w-[248px] rounded-[26px] bg-gradient-to-br ${reward.cardClass} p-5 text-left text-white shadow-xl shadow-emerald-900/15`}
                 >
                   <div className="flex h-full flex-col justify-between">
                     <div>
@@ -175,17 +182,17 @@ export default function OrdersPage() {
             })}
           </div>
 
-          <section className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+          <section className="animate-rise rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ReceiptText size={20} className="text-ss-green" />
                 <h2 className="text-lg font-black text-slate-900">Redeem History</h2>
               </div>
-              <button onClick={() => setShowHistory(true)} className="flex items-center gap-1 text-xs font-black uppercase text-ss-green">
+              <button onClick={() => setShowHistory(true)} className="tap-button flex items-center gap-1 text-xs font-black uppercase text-ss-green">
                 View all <ArrowRight size={14} />
               </button>
             </div>
-            <div className="space-y-3">
+            <div className="stagger space-y-3">
               {redeemHistory.slice(0, 3).map((item) => (
                 <RedeemHistoryItem key={item.id} item={item} />
               ))}
@@ -196,13 +203,13 @@ export default function OrdersPage() {
 
       {showHistory && (
         <div className="fixed inset-0 z-[80] bg-black/45 px-5 py-8 backdrop-blur-sm">
-          <div className="mx-auto flex max-h-full w-full max-w-[430px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="modal-pop mx-auto flex max-h-full w-full max-w-[430px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 p-5">
               <div>
                 <p className="text-lg font-black text-slate-900">Redeem Points</p>
                 <p className="text-xs font-semibold text-slate-500">Full redemption history</p>
               </div>
-              <button onClick={() => setShowHistory(false)} className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700">
+              <button onClick={() => setShowHistory(false)} className="tap-button grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700">
                 <X size={18} />
               </button>
             </div>
@@ -217,11 +224,11 @@ export default function OrdersPage() {
 
       {selectedReward && (
         <div className="fixed inset-0 z-[90] grid place-items-end bg-black/45 px-5 pb-5 pt-8 backdrop-blur-sm sm:place-items-center">
-          <div className="w-full max-w-[430px] overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="modal-sheet w-full max-w-[430px] overflow-hidden rounded-3xl bg-white shadow-2xl">
             <div className={`bg-gradient-to-br ${selectedReward.cardClass} p-5 text-white`}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <selectedReward.icon size={34} className="text-white" strokeWidth={2.4} />
-                <button onClick={() => setSelectedReward(null)} className="grid h-10 w-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur">
+                <button onClick={() => setSelectedReward(null)} className="tap-button grid h-10 w-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur">
                   <X size={18} />
                 </button>
               </div>
@@ -243,10 +250,10 @@ export default function OrdersPage() {
                 Staff will confirm this claim before applying the coupon to the order.
               </p>
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <button onClick={() => setSelectedReward(null)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700">
+                <button onClick={() => setSelectedReward(null)} className="tap-button rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700">
                   Cancel
                 </button>
-                <button onClick={() => setSelectedReward(null)} className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
+                <button onClick={() => setSelectedReward(null)} className="tap-button rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/20">
                   Redeem
                 </button>
               </div>

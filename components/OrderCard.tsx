@@ -47,7 +47,7 @@ export function OrderCard({ order }: { order: Order }) {
   const Icon = config.icon;
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <article className="tap-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex gap-4">
         <div className={`h-fit rounded-xl bg-gradient-to-br ${config.iconBox} p-3`}>
           <Icon size={20} />

@@ -112,8 +112,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!savedPhone) {
     return (
       <main className="login-shell min-h-screen overflow-hidden px-5 py-8 text-white">
-        <section className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[430px] flex-col justify-center">
-          <div className="mb-7 text-center">
+        <section className="animate-page mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[430px] flex-col justify-center">
+          <div className="animate-rise mb-7 text-center">
             <div className="mx-auto mb-5 grid h-24 w-24 place-items-center">
               <Image
                 src="/southstyle-logo.png"
@@ -131,7 +131,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </p>
           </div>
 
-          <div className="rounded-[30px] border border-white/25 bg-white/15 p-5 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
+          <div className="animate-rise rounded-[30px] border border-white/25 bg-white/15 p-5 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-white">
                 <ShieldCheck size={21} />
@@ -166,7 +166,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 event.preventDefault();
                 savePhone();
               }}
-              className="mobile-tap w-full rounded-2xl bg-white px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-ss-green shadow-xl shadow-black/15"
+              className="mobile-tap tap-button w-full rounded-2xl bg-white px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-ss-green shadow-xl shadow-black/15"
             >
               Continue
             </button>
@@ -181,7 +181,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <section className="mx-auto flex h-[100svh] w-full max-w-[430px] flex-col overflow-hidden">
         <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-6 py-5 text-center">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.16),transparent_28%)]" />
-          <div className="relative z-10">
+          <div className="animate-rise relative z-10">
             <div className="mx-auto mb-4 grid h-20 w-20 place-items-center">
               <Image
                 src="/southstyle-logo.png"
@@ -197,7 +197,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
             <div className="mx-auto mt-5 flex w-fit items-center gap-3 rounded-full bg-white/18 px-6 py-3 shadow-xl shadow-black/10 backdrop-blur">
               <span className="text-xl font-black tracking-widest text-white">{maskPhone(savedPhone)}</span>
-              <button type="button" onClick={resetPhone} className="mobile-tap grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white" title="Change number">
+              <button type="button" onClick={resetPhone} className="mobile-tap tap-button grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white" title="Change number">
                 <ArrowLeftRight size={18} />
               </button>
             </div>
@@ -207,7 +207,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               {Array.from({ length: PIN_LENGTH }).map((_, index) => (
                 <span
                   key={index}
-                  className={`h-3.5 w-3.5 rounded-full border border-white/45 ${pin.length > index ? 'bg-white' : 'bg-transparent'}`}
+                  className={`h-3.5 w-3.5 rounded-full border border-white/45 ${pin.length > index ? 'mpin-dot-filled bg-white' : 'bg-transparent'}`}
                 />
               ))}
             </div>
@@ -226,7 +226,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   event.preventDefault();
                   pressNumber(number);
                 }}
-                className="mobile-tap mx-auto grid h-14 w-14 place-items-center rounded-full text-3xl font-medium transition active:bg-blue-100"
+                className="mobile-tap tap-button mx-auto grid h-14 w-14 place-items-center rounded-full text-3xl font-medium transition active:bg-blue-100"
               >
                 {number}
               </button>
@@ -239,7 +239,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 event.preventDefault();
                 pressNumber('0');
               }}
-              className="mobile-tap mx-auto grid h-14 w-14 place-items-center rounded-full text-3xl font-medium transition active:bg-blue-100"
+              className="mobile-tap tap-button mx-auto grid h-14 w-14 place-items-center rounded-full text-3xl font-medium transition active:bg-blue-100"
             >
               0
             </button>
@@ -250,7 +250,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 event.preventDefault();
                 deletePin();
               }}
-              className="mobile-tap mx-auto grid h-16 w-16 place-items-center rounded-full transition active:bg-blue-100"
+              className="mobile-tap tap-button mx-auto grid h-16 w-16 place-items-center rounded-full transition active:bg-blue-100"
               title="Delete"
             >
               <Delete size={28} />

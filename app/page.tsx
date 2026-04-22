@@ -3,6 +3,8 @@
 import BottomNav from '@/components/BottomNav';
 import { OrderCard } from '@/components/OrderCard';
 import { PointsDisplay } from '@/components/PointsDisplay';
+import { HomeSkeleton } from '@/components/Skeletons';
+import { useDemoLoading } from '@/components/useDemoLoading';
 import { Customer, Order } from '@/types';
 import { ArrowRight, Bell, ShoppingBag, Zap } from 'lucide-react';
 
@@ -87,25 +89,31 @@ const tierTheme: Record<TierName, { card: string; bar: string; text: string }> =
 };
 
 export default function Home() {
+  const isLoading = useDemoLoading();
+
+  if (isLoading) {
+    return <HomeSkeleton />;
+  }
+
   return (
     <>
-      <main className="phone-shell bg-white pb-28">
-        <section className="green-hero rounded-b-[34px] px-5 pb-24 pt-6 text-white">
+      <main className="animate-page phone-shell bg-white pb-28">
+        <section className="animate-hero green-hero rounded-b-[34px] px-5 pb-24 pt-6 text-white">
           <div className="mb-8 flex items-start justify-between">
             <div>
               <p className="text-sm font-semibold text-white/75">Welcome back</p>
               <p className="mt-1 text-xl font-black tracking-tight">{customer.name}</p>
               <p className="mt-1 text-sm font-medium text-white/75">{customer.businessName}</p>
             </div>
-            <button className="grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 text-white backdrop-blur" title="Notifications">
+            <button className="tap-button grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 text-white backdrop-blur" title="Notifications">
               <Bell size={19} />
             </button>
           </div>
           <PointsDisplay points={customer.points} memberSince={customer.memberSince} tier={currentTier} />
         </section>
 
-        <div className="px-5 pt-18">
-          <section className={`mb-6 rounded-2xl border border-white/10 bg-gradient-to-br ${tierTheme[currentTier].card} p-5 shadow-lg shadow-slate-950/15`}>
+        <div className="stagger px-5 pt-18">
+          <section className={`tap-card mb-6 rounded-2xl border border-white/10 bg-gradient-to-br ${tierTheme[currentTier].card} p-5 shadow-lg shadow-slate-950/15`}>
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm font-black text-white">Path to {nextTier} Tier</p>
               <p className={`text-sm font-black ${tierTheme[currentTier].text}`}>{tierProgress}%</p>
@@ -121,7 +129,7 @@ export default function Home() {
             </p>
           </section>
 
-          <section className="mb-6 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+          <section className="tap-card mb-6 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
             <div className="mb-4 flex items-center gap-2">
               <Zap size={20} className="text-ss-green" />
               <h2 className="text-sm font-black text-slate-900">Monthly Activity</h2>
@@ -148,11 +156,11 @@ export default function Home() {
                 <ShoppingBag size={19} className="text-ss-green" />
                 Recent Orders
               </h2>
-              <a href="/orders" className="flex items-center gap-1 text-xs font-black uppercase text-ss-green">
+              <a href="/orders" className="tap-button flex items-center gap-1 text-xs font-black uppercase text-ss-green">
                 View all <ArrowRight size={14} />
               </a>
             </div>
-            <div className="space-y-3">
+            <div className="stagger space-y-3">
               {activeOrders.map((order) => (
                 <OrderCard key={order.id} order={order} />
               ))}

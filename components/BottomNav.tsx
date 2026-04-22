@@ -37,15 +37,15 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold md:flex-row md:gap-2 md:text-sm"
+              className="nav-item flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold md:flex-row md:gap-2 md:text-sm"
               title={item.label}
             >
               <span
                 className={
                   item.featured
-                    ? 'grid h-12 w-12 -mt-7 place-items-center rounded-full bg-white text-ss-green shadow-lg md:mt-0 md:h-10 md:w-10'
+                    ? `grid h-12 w-12 -mt-7 place-items-center rounded-full bg-white text-ss-green shadow-lg md:mt-0 md:h-10 md:w-10 ${isActive ? 'pulse-soft' : ''}`
                     : isActive
-                      ? 'text-white'
+                      ? 'scale-110 text-white'
                       : 'text-white/70'
                 }
               >

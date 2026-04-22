@@ -15,7 +15,7 @@ export function TransactionCard({ transaction }: { transaction: Transaction }) {
   const isEarn = transaction.type === 'earn';
 
   return (
-    <article className="flex items-center justify-between border-b border-ss-line py-4 last:border-b-0">
+    <article className="tap-card flex items-center justify-between border-b border-ss-line py-4 last:border-b-0">
       <div>
         <p className="text-sm font-black text-ss-ink">{isEarn ? 'Point Reward' : 'Point Redemption'}</p>
         <p className="mt-1 max-w-[215px] text-sm font-semibold leading-5 text-ss-ink">{transaction.description}</p>
