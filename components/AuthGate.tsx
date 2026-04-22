@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { ReactNode, useEffect, useState } from 'react';
-import { ArrowLeftRight, Delete, Phone } from 'lucide-react';
+import { ArrowLeftRight, Delete, Phone, ShieldCheck } from 'lucide-react';
 
 const PHONE_KEY = 'southstyle:test-phone';
 const PIN_LENGTH = 4;
@@ -111,40 +111,52 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!savedPhone) {
     return (
-      <main className="login-shell min-h-screen px-5 py-8 text-white">
-        <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[430px] flex-col justify-center">
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-5 grid h-24 w-24 place-items-center rounded-[28px] bg-white shadow-2xl shadow-black/25">
+      <main className="login-shell min-h-screen overflow-hidden px-5 py-8 text-white">
+        <section className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[430px] flex-col justify-center">
+          <div className="mb-7 text-center">
+            <div className="mx-auto mb-5 grid h-24 w-24 place-items-center">
               <Image
                 src="/southstyle-logo.png"
                 alt="Southstyle logo"
-                width={72}
-                height={72}
-                className="h-[72px] w-[72px] rounded-2xl object-contain"
+                width={92}
+                height={92}
+                className="h-[92px] w-[92px] object-contain drop-shadow-2xl"
                 priority
               />
             </div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/70">Southstyle</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight">Set Mobile Number</h1>
-            <p className="mx-auto mt-3 max-w-[300px] text-sm font-medium leading-6 text-white/75">
-              First-time setup for this device. Your number will be saved for MPIN login testing.
+            <p className="text-sm font-black uppercase tracking-[0.28em] text-emerald-100/80">SouthStyle Suki</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight">Welcome Back</h1>
+            <p className="mx-auto mt-3 max-w-[300px] text-sm font-semibold leading-6 text-white/75">
+              Enter your mobile number to continue to your Suki points account.
             </p>
           </div>
 
-          <div className="rounded-[28px] bg-white p-5 card-shadow">
-            <label className="mb-2 block text-xs font-black uppercase tracking-wide text-ss-muted">Mobile Number</label>
-            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-ss-line bg-white px-4 py-3">
-              <Phone size={18} className="text-ss-green" />
+          <div className="rounded-[30px] border border-white/25 bg-white/15 p-5 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-white">
+                <ShieldCheck size={21} />
+              </div>
+              <div>
+                <p className="text-sm font-black text-white">Set Mobile Number</p>
+                <p className="mt-1 text-xs font-semibold text-white/60">For static testing only</p>
+              </div>
+            </div>
+
+            <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/60">Mobile Number</label>
+            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-white/20 bg-white px-4 py-4 shadow-lg shadow-black/10">
+              <Phone size={18} className="shrink-0 text-ss-green" />
               <input
                 value={phoneInput}
                 onChange={(event) => handlePhoneInput(event.target.value)}
                 onInput={(event) => handlePhoneInput(event.currentTarget.value)}
                 inputMode="tel"
                 placeholder="09XX XXX XXXX"
-                className="min-w-0 flex-1 bg-transparent text-sm font-bold text-ss-ink outline-none placeholder:text-ss-muted"
+                className="min-w-0 flex-1 bg-transparent text-base font-black text-slate-900 outline-none placeholder:text-slate-400"
               />
             </div>
-            <p className="mb-4 text-xs font-bold text-ss-muted">{debugStatus}. Auto-continues after 10 digits.</p>
+            <p className="mb-4 text-xs font-semibold leading-5 text-white/60">
+              Your number is saved on this device. Any valid number can continue for now.
+            </p>
             {error && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-ss-danger">{error}</p>}
             <button
               type="button"
@@ -154,7 +166,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 event.preventDefault();
                 savePhone();
               }}
-              className="mobile-tap w-full rounded-2xl bg-ss-green px-5 py-4 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-green-900/20"
+              className="mobile-tap w-full rounded-2xl bg-white px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-ss-green shadow-xl shadow-black/15"
             >
               Continue
             </button>
@@ -170,13 +182,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-6 py-5 text-center">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.16),transparent_28%)]" />
           <div className="relative z-10">
-            <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-[30px] bg-white/95 shadow-2xl shadow-black/20">
+            <div className="mx-auto mb-4 grid h-20 w-20 place-items-center">
               <Image
                 src="/southstyle-logo.png"
                 alt="Southstyle logo"
-                width={62}
-                height={62}
-                className="h-[62px] w-[62px] rounded-2xl object-contain"
+                width={78}
+                height={78}
+                className="h-[78px] w-[78px] object-contain drop-shadow-2xl"
                 priority
               />
             </div>
@@ -243,10 +255,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
             >
               <Delete size={28} />
             </button>
-          </div>
-          <div className="mt-4 flex justify-between px-2 text-sm font-black tracking-wide text-[#064f9f]">
-            <button type="button" className="mobile-tap">Help Center</button>
-            <button type="button" className="mobile-tap" onClick={() => setError('Any 4-digit PIN works for this static test.')}>Forgot MPIN?</button>
           </div>
           {error && <p className="mt-4 text-center text-xs font-bold text-ss-danger">{error}</p>}
         </div>
