@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Gift, Home, Newspaper, QrCode, UserRound } from 'lucide-react';
+import { Gift, Home, ReceiptText, QrCode, UserRound } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/orders', label: 'Redeem', icon: Gift },
   { href: '/scan', label: 'Scan', icon: QrCode, featured: true },
-  { href: '/history', label: 'News', icon: Newspaper },
+  { href: '/history', label: 'Transactions', icon: ReceiptText },
   { href: '/account', label: 'Account', icon: UserRound },
 ];
 

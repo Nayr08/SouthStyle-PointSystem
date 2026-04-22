@@ -1,74 +1,138 @@
-﻿'use client';
+'use client';
 
-import { FormEvent, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import BottomNav from '@/components/BottomNav';
-import { ArrowLeft, Flashlight, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, Flashlight, QrCode, RotateCcw, UserRound } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ScanPage() {
-  const [qrInput, setQrInput] = useState('');
-  const [message, setMessage] = useState('RFID reader or QR backup can identify the customer card.');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [mode, setMode] = useState<'scan' | 'account'>('scan');
+  const [cameraStatus, setCameraStatus] = useState('Point the camera at a customer QR code.');
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const code = qrInput.trim();
-    if (!code) {
-      setMessage('Enter a card ID, RFID code, or QR token first.');
-      return;
+  useEffect(() => {
+    if (window.location.search.includes('view=qr')) {
+      setMode('account');
     }
-    setMessage(`Card ${code} is ready for customer lookup.`);
-    setQrInput('');
-  };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const startCamera = async () => {
+      if (mode !== 'scan') {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraStatus('Camera is not available in this browser.');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+
+        if (!isMounted) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        setCameraStatus('Scanner ready.');
+      } catch {
+        setCameraStatus('Allow camera access to scan QR codes.');
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      isMounted = false;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, [mode]);
+
+  const isScanner = mode === 'scan';
 
   return (
     <>
-      <main className="phone-shell pb-28">
-        <section className="green-hero min-h-[510px] px-5 pt-6 text-white">
-          <div className="mb-8 flex items-center justify-between">
-            <Link href="/" className="grid h-10 w-10 place-items-center rounded-full bg-white/10">
-              <ArrowLeft size={20} />
-            </Link>
-            <h1 className="text-lg font-black">Scan QR Code</h1>
-            <button className="grid h-10 w-10 place-items-center rounded-full bg-white/10" title="Flash">
-              <Flashlight size={18} />
-            </button>
-          </div>
-
-          <div className="mx-auto flex h-[310px] max-w-[290px] items-center justify-center">
-            <div className="relative grid h-56 w-44 place-items-center rounded-[28px] bg-zinc-950 p-3 shadow-2xl">
-              <div className="absolute top-3 h-2 w-14 rounded-full bg-black/70" />
-              <div className="grid h-44 w-36 place-items-center rounded-lg bg-white">
-                <QrCode size={96} className="text-black" />
-              </div>
-              <div className="absolute left-[-28px] top-12 h-20 w-20 rounded-l-3xl border-l-4 border-t-4 border-white" />
-              <div className="absolute right-[-28px] top-12 h-20 w-20 rounded-r-3xl border-r-4 border-t-4 border-white" />
-              <div className="absolute left-[-28px] bottom-12 h-20 w-20 rounded-l-3xl border-b-4 border-l-4 border-white" />
-              <div className="absolute right-[-28px] bottom-12 h-20 w-20 rounded-r-3xl border-b-4 border-r-4 border-white" />
-              <div className="absolute left-[-18px] right-[-18px] top-1/2 h-px bg-white/80" />
+      <main className="phone-shell bg-slate-950 pb-28 text-white">
+        <section className="relative min-h-[calc(100svh-88px)] overflow-hidden bg-slate-950">
+          {isScanner ? (
+            <div className="absolute inset-0">
+              <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-black/70" />
             </div>
-          </div>
-        </section>
+          ) : (
+            <div className="absolute inset-0 green-hero" />
+          )}
 
-        <section className="-mt-20 rounded-t-[28px] bg-white px-5 pb-8 pt-6">
-          <h2 className="text-lg font-black text-ss-ink">Or Input QR Code</h2>
-          <p className="mt-2 text-sm leading-6 text-ss-muted">
-            Enter the QR code, RFID UID, or card number manually if scanning has an error.
-          </p>
-          <form onSubmit={handleSubmit} className="mt-5">
-            <label className="mb-2 block text-sm font-bold text-ss-ink">QR Code</label>
-            <div className="flex gap-3">
-              <input
-                value={qrInput}
-                onChange={(event) => setQrInput(event.target.value)}
-                placeholder="Input here"
-                className="min-w-0 flex-1 rounded-lg border border-ss-line bg-white px-4 py-3 text-sm text-ss-ink outline-none transition placeholder:text-ss-muted focus:border-ss-green"
-              />
-              <button className="rounded-lg bg-ss-orange px-5 text-xs font-black uppercase text-white">
-                Submit
+          <div className="relative z-10 flex min-h-[calc(100svh-88px)] flex-col px-5 pt-6">
+            <div className="mb-8 flex items-center justify-between">
+              <Link href="/" className="grid h-10 w-10 place-items-center rounded-full bg-white/15 backdrop-blur">
+                <ArrowLeft size={20} />
+              </Link>
+              <h1 className="text-lg font-black">{isScanner ? 'Scan QR Code' : 'My QR Code'}</h1>
+              <button
+                onClick={() => setMode(isScanner ? 'account' : 'scan')}
+                className="grid h-10 w-10 place-items-center rounded-full bg-white/15 backdrop-blur"
+                title={isScanner ? 'Show my QR' : 'Open scanner'}
+              >
+                {isScanner ? <QrCode size={20} /> : <Camera size={20} />}
               </button>
             </div>
-          </form>
-          <p className="mt-4 rounded-lg bg-ss-green-soft px-4 py-3 text-sm font-semibold text-ss-green">{message}</p>
+
+            {isScanner ? (
+              <div className="flex flex-1 flex-col items-center justify-center pb-10">
+                <div className="relative grid aspect-square w-full max-w-[290px] place-items-center">
+                  <div className="absolute left-0 top-0 h-20 w-20 rounded-tl-[28px] border-l-4 border-t-4 border-white" />
+                  <div className="absolute right-0 top-0 h-20 w-20 rounded-tr-[28px] border-r-4 border-t-4 border-white" />
+                  <div className="absolute bottom-0 left-0 h-20 w-20 rounded-bl-[28px] border-b-4 border-l-4 border-white" />
+                  <div className="absolute bottom-0 right-0 h-20 w-20 rounded-br-[28px] border-b-4 border-r-4 border-white" />
+                  <div className="absolute left-8 right-8 top-1/2 h-px bg-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.9)]" />
+                  <div className="rounded-3xl border border-white/15 bg-black/20 px-5 py-3 text-center text-xs font-bold text-white/80 backdrop-blur">
+                    {cameraStatus}
+                  </div>
+                </div>
+
+                <div className="mt-8 flex gap-3">
+                  <button className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur" title="Flash">
+                    <Flashlight size={20} />
+                  </button>
+                  <button className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur" title="Switch camera">
+                    <RotateCcw size={20} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center pb-10">
+                <div className="w-full max-w-[310px] rounded-[32px] border border-white/25 bg-white/15 p-5 text-center shadow-2xl shadow-black/25 backdrop-blur-xl">
+                  <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-white/15">
+                    <UserRound size={26} />
+                  </div>
+                  <p className="text-sm font-black uppercase tracking-[0.16em] text-white/60">Southstyle Suki</p>
+                  <h2 className="mt-2 text-2xl font-black">Pristia Candra</h2>
+                  <div className="mx-auto mt-6 grid aspect-square w-full max-w-[220px] place-items-center rounded-[28px] bg-white p-5">
+                    <QrCode size={160} className="text-slate-950" strokeWidth={2.4} />
+                  </div>
+                  <p className="mt-5 text-xs font-semibold leading-5 text-white/70">
+                    Show this QR to staff if the RFID card is not available.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </section>
       </main>
       <BottomNav />

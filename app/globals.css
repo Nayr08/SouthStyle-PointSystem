@@ -46,8 +46,7 @@ textarea {
   max-width: 430px;
   margin: 0 auto;
   min-height: 100svh;
-  background:
-    linear-gradient(180deg, rgba(8, 104, 49, 0.92) 0%, rgba(13, 31, 20, 0.96) 38%, #0b120d 100%);
+  background: #ffffff;
   position: relative;
   overflow-x: hidden;
 }
@@ -77,31 +76,8 @@ textarea {
 
 
 
-.bg-white,
-.bg-white * {
-  color: var(--color-ss-ink) !important;
-}
-
-.bg-white .text-ss-green,
-.bg-white .text-ss-green *,
-.bg-white [class*="text-ss-green"],
-.bg-white [class*="text-ss-green"] *,
-.bg-white svg.text-ss-green,
-.bg-white .text-ss-sky,
-.bg-white [class*="text-ss-sky"],
-.bg-white .text-ss-danger,
-.bg-white [class*="text-ss-danger"] {
-  color: var(--color-ss-green) !important;
-}
-
-.bg-white .text-ss-muted,
-.bg-white [class*="text-ss-muted"] {
-  color: var(--color-ss-muted) !important;
-}
-
-.bg-white svg,
-.bg-white .scanner-icon {
-  color: var(--color-ss-green) !important;
+.bg-white {
+  color: var(--color-ss-ink);
 }
 
 .bottom-nav-surface {
@@ -114,16 +90,14 @@ textarea {
 /* Desktop customer layout */
 @media (min-width: 900px) {
   body {
-    background: linear-gradient(180deg, #123d24 0%, #102918 28%, #0b120d 100%);
+    background: #ffffff;
   }
 
   .phone-shell {
     max-width: none;
     min-height: 100vh;
     padding-top: 88px;
-    background:
-      radial-gradient(circle at top left, rgba(7, 139, 62, 0.22), transparent 34%),
-      linear-gradient(180deg, rgba(8, 104, 49, 0.48) 0%, rgba(13, 31, 20, 0.96) 38%, #0b120d 100%);
+    background: #ffffff;
   }
 
   .phone-shell > .green-hero {
@@ -143,24 +117,24 @@ textarea {
     padding-right: 32px;
   }
 
-  .phone-shell > div.px-5.pt-10 {
+  .phone-shell > div.px-5.pt-20 {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
     gap: 28px;
     align-items: start;
   }
 
-  .phone-shell > div.px-5.pt-10 > section:first-child,
-  .phone-shell > div.px-5.pt-10 > section:nth-child(2) {
+  .phone-shell > div.px-5.pt-20 > section:first-child,
+  .phone-shell > div.px-5.pt-20 > section:nth-child(2) {
     grid-column: 1;
   }
 
-  .phone-shell > div.px-5.pt-10 > section:last-child {
+  .phone-shell > div.px-5.pt-20 > section:last-child {
     grid-column: 2;
     grid-row: 1 / span 2;
   }
 
-  .phone-shell > div.px-5.pt-10 .hide-scrollbar {
+  .phone-shell > div.px-5.pt-20 .hide-scrollbar {
     display: grid;
     grid-template-columns: repeat(3, minmax(150px, 1fr));
     overflow: visible;
@@ -191,3 +165,5 @@ textarea {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
+
+

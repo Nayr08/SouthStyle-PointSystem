@@ -1,63 +1,62 @@
 ﻿'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import { CreditCard, QrCode, RadioTower } from 'lucide-react';
+import { Star } from 'lucide-react';
+
+type TierName = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | 'Titanium';
 
 interface PointsDisplayProps {
   points: number;
   memberSince: string;
+  tier?: TierName;
 }
 
-export function PointsDisplay({ points, memberSince }: PointsDisplayProps) {
+const tierBadgeStyles: Record<TierName, string> = {
+  Bronze: 'border-[#cd7f32]/30 bg-[#cd7f32]/20 text-[#ffd2a1]',
+  Silver: 'border-slate-200/40 bg-slate-200/20 text-slate-100',
+  Gold: 'border-amber-300/40 bg-amber-400/20 text-amber-200',
+  Platinum: 'border-cyan-200/40 bg-cyan-200/20 text-cyan-100',
+  Diamond: 'border-sky-200/40 bg-sky-300/20 text-sky-100',
+  Titanium: 'border-zinc-100/40 bg-zinc-300/20 text-zinc-50',
+};
+
+export function PointsDisplay({ points, memberSince, tier = 'Platinum' }: PointsDisplayProps) {
   return (
-    <div className="-mb-16 overflow-hidden rounded-2xl bg-white card-shadow">
-      <div className="relative p-4">
-        <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-ss-green-soft" />
-        <div className="absolute -bottom-12 left-16 h-24 w-24 rounded-full bg-ss-green-soft" />
+    <div className="-mb-16 overflow-hidden rounded-3xl border border-white/25 bg-white/12 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
+      <div className="relative p-5">
+        <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/15 blur-sm" />
+        <div className="absolute -bottom-14 left-16 h-28 w-28 rounded-full bg-emerald-300/15 blur-sm" />
 
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ss-green-soft ring-4 ring-white">
-              <Image
-                src="/southstyle-logo.png"
-                alt="Southstyle logo"
-                width={34}
-                height={34}
-                className="h-[34px] w-[34px] rounded-full object-contain"
-                priority
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-ss-muted">Southstyle Suki Card</p>
-              <p className="truncate text-sm font-black text-ss-ink">RFID + QR Backup</p>
-            </div>
+        <div className="relative flex min-w-0 items-center gap-3">
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl">
+            <Image
+              src="/southstyle-logo.png"
+              alt="Southstyle logo"
+              width={42}
+              height={42}
+              className="h-[42px] w-[42px] rounded-xl object-contain"
+              priority
+            />
           </div>
-          <div className="flex items-center gap-1 rounded-full bg-ss-green-soft px-3 py-1 text-[10px] font-black uppercase text-ss-green">
-            <RadioTower size={12} /> Active
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Southstyle Suki Card</p>
+          </div>
+          <div className={`ml-auto flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase ${tierBadgeStyles[tier]}`}>
+            <Star size={12} fill="currentColor" />
+            {tier}
           </div>
         </div>
 
-        <div className="relative mt-5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-ss-muted">Available Points</p>
-          <div className="mt-1 flex items-end gap-2">
-            <strong className="text-[32px] font-black leading-none tracking-tight text-ss-green">
-              {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </strong>
-            <span className="pb-1 text-xs font-bold text-ss-muted">points</span>
-          </div>
-          <p className="mt-2 text-[11px] font-semibold text-ss-muted">Worth PHP {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-        </div>
-
-        <div className="relative mt-5 grid grid-cols-[1fr_auto] items-center gap-4 border-t border-ss-line pt-4">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-ss-muted">
-            <CreditCard size={14} className="text-ss-green" />
-            {memberSince}
-          </div>
-          <Link href="/scan" className="scanner-icon flex items-center gap-2 rounded-full bg-ss-green px-3 py-2 text-xs font-black text-white">
-            <QrCode size={16} />
-            QR
-          </Link>
+        <div className="relative mt-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">Available Points</p>
+          <strong className="mt-1 block text-[44px] font-black leading-none tracking-tight text-white">
+            {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </strong>
+          <p className="mt-1 text-sm font-bold text-white/70">points</p>
+          <p className="mt-3 text-sm font-black text-emerald-200">
+            Worth PHP {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="mt-3 text-xs font-semibold text-white/60">{memberSince}</p>
         </div>
       </div>
     </div>
