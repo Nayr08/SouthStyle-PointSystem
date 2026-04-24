@@ -30,6 +30,20 @@ const statusConfig: Record<OrderStatus, { label: string; pill: string; icon: Rea
   },
 };
 
+const paymentPill: Record<Order['paymentStatus'], string> = {
+  unpaid: 'bg-slate-100 text-slate-600',
+  partial: 'bg-amber-100 text-amber-700',
+  paid: 'bg-emerald-100 text-emerald-700',
+  voided: 'bg-rose-100 text-rose-700',
+};
+
+const paymentLabel: Record<Order['paymentStatus'], string> = {
+  unpaid: 'Unpaid',
+  partial: 'Partial',
+  paid: 'Paid',
+  voided: 'Voided',
+};
+
 export function StatusBadge({ status }: { status: OrderStatus }) {
   const config = statusConfig[status];
   const Icon = config.icon;
@@ -70,6 +84,16 @@ export function OrderCard({ order, onClick }: { order: Order; onClick?: () => vo
               <p className="truncate text-sm font-black text-slate-900">{order.items.split(' - ')[0]}</p>
               <p className="mt-1 text-xs font-black uppercase tracking-[0.08em] text-slate-500">Order #{order.orderNumber}</p>
               <p className="mt-1 text-xs font-semibold text-slate-500">{order.date}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${paymentPill[order.paymentStatus]}`}>
+                  {paymentLabel[order.paymentStatus]}
+                </span>
+                {order.paymentStatus !== 'paid' && (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">
+                    Remaining PHP {order.remainingBalance.toFixed(2)}
+                  </span>
+                )}
+              </div>
             </div>
             <StatusBadge status={order.status} />
           </div>

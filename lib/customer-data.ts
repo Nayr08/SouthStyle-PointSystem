@@ -16,6 +16,12 @@ type OrderRow = {
   order_number: string;
   date_label: string;
   order_status: OrderStatus;
+  payment_status: 'unpaid' | 'partial' | 'paid' | 'voided';
+  subtotal_amount: number;
+  coupon_discount_amount: number;
+  points_discount_amount: number;
+  paid_amount: number;
+  remaining_balance: number;
   items: string;
   total_amount: number;
   points_earned: number;
@@ -80,6 +86,12 @@ export function useCustomerData() {
         orderNumber: order.order_number,
         date: order.date_label,
         status: order.order_status,
+        paymentStatus: order.payment_status,
+        subtotalAmount: Number(order.subtotal_amount),
+        couponDiscountAmount: Number(order.coupon_discount_amount),
+        pointsDiscountAmount: Number(order.points_discount_amount),
+        paidAmount: Number(order.paid_amount),
+        remainingBalance: Number(order.remaining_balance),
         items: order.items,
         total: Number(order.total_amount),
         pointsEarned: Number(order.points_earned),

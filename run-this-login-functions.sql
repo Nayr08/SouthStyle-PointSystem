@@ -6,6 +6,11 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA extensions;
 
+ALTER TABLE public.staff
+ADD COLUMN IF NOT EXISTS rfid_uid text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS staff_rfid_uid_key ON public.staff(rfid_uid) WHERE rfid_uid IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS public.coupons (
   id               uuid PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
   name             text NOT NULL,
@@ -65,6 +70,42 @@ CREATE TABLE IF NOT EXISTS public.order_tracking_steps (
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_tracking_steps_order_id ON public.order_tracking_steps(order_id);
+
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS paid_amount numeric(12,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS subtotal_amount numeric(12,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS coupon_discount_amount numeric(12,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS points_discount_amount numeric(12,2) NOT NULL DEFAULT 0;
+
+UPDATE public.orders
+SET paid_amount = total_amount
+WHERE payment_status = 'paid'
+  AND COALESCE(paid_amount, 0) = 0;
+
+UPDATE public.orders
+SET subtotal_amount = total_amount + COALESCE(coupon_discount_amount, 0) + COALESCE(points_discount_amount, 0)
+WHERE COALESCE(subtotal_amount, 0) = 0;
+
+ALTER TABLE public.orders
+DROP CONSTRAINT IF EXISTS orders_paid_amount_check;
+
+ALTER TABLE public.orders
+ADD CONSTRAINT orders_paid_amount_check CHECK (
+  paid_amount >= 0
+  AND paid_amount <= total_amount
+);
+
+ALTER TABLE public.orders
+DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+
+ALTER TABLE public.orders
+ADD CONSTRAINT orders_payment_status_check CHECK (payment_status IN ('unpaid', 'partial', 'paid', 'voided'));
 
 CREATE OR REPLACE FUNCTION public.ensure_order_tracking(p_order_id uuid)
 RETURNS void AS $$
@@ -235,7 +276,11 @@ BEGIN
     RAISE EXCEPTION 'PIN must be exactly 4 digits.';
   END IF;
 
-  v_rfid_uid := NULLIF(trim(COALESCE(p_rfid_uid, '')), '');
+  IF trim(COALESCE(p_rfid_uid, '')) = '' THEN
+    RAISE EXCEPTION 'RFID UID is required.';
+  END IF;
+
+  v_rfid_uid := trim(COALESCE(p_rfid_uid, ''));
 
   INSERT INTO public.customers (
     full_name,
@@ -478,19 +523,25 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 GRANT EXECUTE ON FUNCTION public.admin_check_coupon_code(text, numeric) TO anon, authenticated;
 
 -- Add points from a paid purchase. PHP 100 = 1 point.
+DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text);
+
 CREATE OR REPLACE FUNCTION public.admin_add_purchase_points(
   p_staff_id uuid,
   p_lookup text,
   p_purchase_amount numeric,
   p_coupon_code text DEFAULT NULL,
   p_points_to_use numeric DEFAULT 0,
-  p_notes text DEFAULT NULL
+  p_notes text DEFAULT NULL,
+  p_paid_amount numeric DEFAULT NULL
 )
 RETURNS TABLE (
   customer_id uuid,
   full_name text,
   purchase_amount numeric,
   amount_due numeric,
+  paid_amount numeric,
+  remaining_balance numeric,
+  payment_status text,
   coupon_discount numeric,
   points_used numeric,
   coupon_name text,
@@ -505,8 +556,17 @@ DECLARE
   v_balance numeric(12,2);
   v_balance_after_redeem numeric(12,2);
   v_order_id uuid;
-  v_coupon record;
+  v_coupon_id uuid;
+  v_coupon_claim_code text;
+  v_coupon_name text;
+  v_coupon_reward_type text;
+  v_coupon_discount_amount numeric(10,2);
   v_amount_due numeric(10,2);
+  v_final_total numeric(12,2);
+  v_paid_amount numeric(12,2);
+  v_remaining_balance numeric(12,2);
+  v_points_added numeric(12,2) := 0;
+  v_payment_status text := 'unpaid';
   v_coupon_discount numeric(10,2) := 0;
   v_points_to_use numeric(12,2) := COALESCE(p_points_to_use, 0);
 BEGIN
@@ -520,6 +580,12 @@ BEGIN
 
   IF v_points_to_use < 0 THEN
     RAISE EXCEPTION 'Points to use cannot be negative.';
+  END IF;
+
+  v_paid_amount := COALESCE(p_paid_amount, p_purchase_amount);
+
+  IF v_paid_amount <= 0 THEN
+    RAISE EXCEPTION 'Paid amount must be greater than zero.';
   END IF;
 
   SELECT x.customer_id, x.full_name
@@ -549,22 +615,21 @@ BEGIN
       c.name,
       c.reward_type,
       c.discount_amount
-    INTO v_coupon
+    INTO v_coupon_id, v_coupon_claim_code, v_coupon_name, v_coupon_reward_type, v_coupon_discount_amount
     FROM public.coupon_redemptions cr
     JOIN public.coupons c ON c.id = cr.coupon_id
     WHERE upper(cr.claim_code) = upper(trim(p_coupon_code))
       AND cr.status = 'claimed';
 
-    IF v_coupon.id IS NULL THEN
+    IF v_coupon_id IS NULL THEN
       RAISE EXCEPTION 'Coupon code is invalid or already used.';
     END IF;
 
-    IF v_coupon.reward_type = 'discount' THEN
-      v_coupon_discount := LEAST(COALESCE(v_coupon.discount_amount, 0), p_purchase_amount);
+    IF v_coupon_reward_type = 'discount' THEN
+      v_coupon_discount := LEAST(COALESCE(v_coupon_discount_amount, 0), p_purchase_amount);
     END IF;
   END IF;
 
-  v_points := round((p_purchase_amount / 100.0)::numeric, 2);
   v_amount_due := GREATEST(p_purchase_amount - v_coupon_discount, 0);
 
   IF v_points_to_use > v_balance THEN
@@ -576,13 +641,49 @@ BEGIN
   END IF;
 
   v_amount_due := GREATEST(v_amount_due - v_points_to_use, 0);
+  v_final_total := v_amount_due;
 
-  INSERT INTO public.orders (customer_id, total_amount, points_earned, payment_status, order_status, notes, created_by)
-  VALUES (v_customer_id, p_purchase_amount, v_points, 'paid', 'pending', p_notes, p_staff_id)
+  IF v_paid_amount > v_amount_due THEN
+    RAISE EXCEPTION 'Paid amount cannot be greater than amount due.';
+  END IF;
+
+  v_remaining_balance := GREATEST(v_amount_due - v_paid_amount, 0);
+  v_payment_status := CASE WHEN v_remaining_balance = 0 THEN 'paid' ELSE 'partial' END;
+
+  IF v_payment_status = 'paid' THEN
+    v_points_added := round((v_paid_amount / 100.0)::numeric, 2);
+  END IF;
+
+  INSERT INTO public.orders (
+    customer_id,
+    subtotal_amount,
+    coupon_discount_amount,
+    points_discount_amount,
+    total_amount,
+    paid_amount,
+    points_earned,
+    payment_status,
+    order_status,
+    notes,
+    created_by
+  )
+  VALUES (
+    v_customer_id,
+    p_purchase_amount,
+    v_coupon_discount,
+    v_points_to_use,
+    v_final_total,
+    v_paid_amount,
+    v_points_added,
+    v_payment_status,
+    'pending',
+    p_notes,
+    p_staff_id
+  )
   RETURNING id INTO v_order_id;
 
   INSERT INTO public.order_items (order_id, service_id, description, quantity, unit_price, line_total)
-  VALUES (v_order_id, NULL, COALESCE(p_notes, 'Paid printing purchase'), 1, p_purchase_amount, p_purchase_amount);
+  VALUES (v_order_id, NULL, COALESCE(p_notes, 'Paid printing purchase'), 1, v_final_total, v_final_total);
 
   PERFORM public.ensure_order_tracking(v_order_id);
 
@@ -606,40 +707,373 @@ BEGIN
     v_balance_after_redeem := v_balance;
   END IF;
 
-  UPDATE public.customers
-  SET points_balance = points_balance + v_points
-  WHERE id = v_customer_id
-  RETURNING points_balance INTO v_balance;
+  IF v_points_added > 0 THEN
+    UPDATE public.customers
+    SET points_balance = points_balance + v_points_added
+    WHERE id = v_customer_id
+    RETURNING points_balance INTO v_balance;
 
-  INSERT INTO public.points_transactions (customer_id, order_id, type, amount, balance_after, staff_id, notes)
-  VALUES (v_customer_id, v_order_id, 'earn', v_points, v_balance, p_staff_id, COALESCE(p_notes, 'Points earned from paid purchase'));
+    INSERT INTO public.points_transactions (customer_id, order_id, type, amount, balance_after, staff_id, notes)
+    VALUES (v_customer_id, v_order_id, 'earn', v_points_added, v_balance, p_staff_id, COALESCE(p_notes, 'Points earned from fully paid order'));
+  ELSE
+    v_balance := v_balance_after_redeem;
+  END IF;
 
-  IF v_coupon.id IS NOT NULL THEN
+  IF v_coupon_id IS NOT NULL THEN
     UPDATE public.coupon_redemptions
     SET
       status = 'used',
       staff_id = p_staff_id,
       used_at = now(),
       order_id = v_order_id
-    WHERE id = v_coupon.id;
+    WHERE id = v_coupon_id;
   END IF;
 
   RETURN QUERY
   SELECT
     v_customer_id,
     v_full_name,
-    p_purchase_amount,
+    v_final_total,
     v_amount_due,
+    v_paid_amount,
+    v_remaining_balance,
+    v_payment_status,
     v_coupon_discount,
     v_points_to_use,
-    v_coupon.name,
-    v_coupon.claim_code,
-    v_points,
+    v_coupon_name,
+    v_coupon_claim_code,
+    v_points_added,
     v_balance;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
-GRANT EXECUTE ON FUNCTION public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_add_order_payment(
+  p_staff_id uuid,
+  p_order_id uuid,
+  p_payment_amount numeric,
+  p_coupon_code text DEFAULT NULL,
+  p_points_to_use numeric DEFAULT 0,
+  p_notes text DEFAULT NULL
+)
+RETURNS TABLE (
+  order_id uuid,
+  customer_id uuid,
+  customer_name text,
+  total_amount numeric,
+  amount_due numeric,
+  paid_amount numeric,
+  remaining_balance numeric,
+  payment_status text,
+  coupon_discount numeric,
+  points_used numeric,
+  coupon_name text,
+  coupon_code text,
+  points_added numeric,
+  balance_after numeric
+) AS $$
+DECLARE
+  v_customer_id uuid;
+  v_customer_name text;
+  v_subtotal_amount numeric(12,2);
+  v_current_coupon_discount numeric(12,2);
+  v_current_points_discount numeric(12,2);
+  v_new_coupon_discount numeric(12,2);
+  v_new_points_discount numeric(12,2);
+  v_total_amount numeric(12,2);
+  v_current_paid numeric(12,2);
+  v_new_paid numeric(12,2);
+  v_amount_due numeric(12,2);
+  v_new_total_amount numeric(12,2);
+  v_remaining_balance numeric(12,2);
+  v_coupon_id uuid;
+  v_coupon_claim_code text;
+  v_coupon_name text;
+  v_coupon_reward_type text;
+  v_coupon_discount_amount numeric(10,2);
+  v_coupon_discount numeric(10,2) := 0;
+  v_points_to_use numeric(12,2) := COALESCE(p_points_to_use, 0);
+  v_points_added numeric(12,2) := 0;
+  v_balance numeric(12,2);
+  v_balance_after_redeem numeric(12,2);
+  v_payment_status text;
+  v_existing_earn_count integer;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.staff WHERE id = p_staff_id AND is_active = true) THEN
+    RAISE EXCEPTION 'Only active staff can add order payments.';
+  END IF;
+
+  IF p_payment_amount <= 0 THEN
+    RAISE EXCEPTION 'Payment amount must be greater than zero.';
+  END IF;
+
+  IF v_points_to_use < 0 THEN
+    RAISE EXCEPTION 'Points to use cannot be negative.';
+  END IF;
+
+  SELECT
+    o.customer_id,
+    c.full_name,
+    o.subtotal_amount,
+    o.coupon_discount_amount,
+    o.points_discount_amount,
+    o.total_amount,
+    o.paid_amount,
+    o.payment_status
+  INTO
+    v_customer_id,
+    v_customer_name,
+    v_subtotal_amount,
+    v_current_coupon_discount,
+    v_current_points_discount,
+    v_total_amount,
+    v_current_paid,
+    v_payment_status
+  FROM public.orders o
+  JOIN public.customers c ON c.id = o.customer_id
+  WHERE o.id = p_order_id
+    AND c.is_active = true
+  FOR UPDATE;
+
+  IF v_customer_id IS NULL THEN
+    RAISE EXCEPTION 'Order not found.';
+  END IF;
+
+  IF v_payment_status = 'paid' THEN
+    RAISE EXCEPTION 'Order is already fully paid.';
+  END IF;
+
+  IF v_payment_status = 'voided' THEN
+    RAISE EXCEPTION 'Cannot accept payment for a voided order.';
+  END IF;
+
+  v_subtotal_amount := COALESCE(v_subtotal_amount, v_total_amount + COALESCE(v_current_coupon_discount, 0) + COALESCE(v_current_points_discount, 0));
+  v_current_coupon_discount := COALESCE(v_current_coupon_discount, 0);
+  v_current_points_discount := COALESCE(v_current_points_discount, 0);
+
+  SELECT points_balance
+  INTO v_balance
+  FROM public.customers
+  WHERE id = v_customer_id
+  FOR UPDATE;
+
+  v_amount_due := GREATEST(v_total_amount - COALESCE(v_current_paid, 0), 0);
+
+  IF v_amount_due = 0 THEN
+    RAISE EXCEPTION 'Order has no remaining balance.';
+  END IF;
+
+  IF NULLIF(trim(COALESCE(p_coupon_code, '')), '') IS NOT NULL THEN
+    SELECT
+      cr.id,
+      cr.claim_code,
+      c.name,
+      c.reward_type,
+      c.discount_amount
+    INTO v_coupon_id, v_coupon_claim_code, v_coupon_name, v_coupon_reward_type, v_coupon_discount_amount
+    FROM public.coupon_redemptions cr
+    JOIN public.coupons c ON c.id = cr.coupon_id
+    WHERE upper(cr.claim_code) = upper(trim(p_coupon_code))
+      AND cr.status = 'claimed';
+
+    IF v_coupon_id IS NULL THEN
+      RAISE EXCEPTION 'Coupon code is invalid or already used.';
+    END IF;
+
+    IF v_coupon_reward_type = 'discount' THEN
+      v_coupon_discount := LEAST(COALESCE(v_coupon_discount_amount, 0), v_amount_due);
+    END IF;
+  END IF;
+
+  IF v_points_to_use > v_balance THEN
+    RAISE EXCEPTION 'Customer does not have enough points.';
+  END IF;
+
+  IF v_points_to_use > v_amount_due THEN
+    RAISE EXCEPTION 'Points used cannot be greater than the remaining amount due.';
+  END IF;
+
+  v_amount_due := GREATEST(v_amount_due - v_coupon_discount - v_points_to_use, 0);
+  v_new_coupon_discount := v_current_coupon_discount + v_coupon_discount;
+  v_new_points_discount := v_current_points_discount + v_points_to_use;
+  v_new_total_amount := GREATEST(v_total_amount - v_coupon_discount - v_points_to_use, 0);
+
+  IF p_payment_amount > v_amount_due THEN
+    RAISE EXCEPTION 'Payment amount cannot be greater than amount due.';
+  END IF;
+
+  v_remaining_balance := GREATEST(v_amount_due - p_payment_amount, 0);
+
+  v_new_paid := COALESCE(v_current_paid, 0) + p_payment_amount;
+
+  IF v_new_paid > v_new_total_amount THEN
+    RAISE EXCEPTION 'Paid amount cannot exceed total order amount.';
+  END IF;
+
+  IF v_points_to_use > 0 THEN
+    UPDATE public.customers
+    SET points_balance = points_balance - v_points_to_use
+    WHERE id = v_customer_id
+    RETURNING points_balance INTO v_balance_after_redeem;
+
+    INSERT INTO public.points_transactions (customer_id, order_id, type, amount, balance_after, staff_id, notes)
+    VALUES (
+      v_customer_id,
+      p_order_id,
+      'redeem',
+      v_points_to_use,
+      v_balance_after_redeem,
+      p_staff_id,
+      COALESCE(p_notes, 'Points used on final order payment')
+    );
+  ELSE
+    v_balance_after_redeem := v_balance;
+  END IF;
+
+  IF v_coupon_id IS NOT NULL THEN
+    UPDATE public.coupon_redemptions
+    SET
+      status = 'used',
+      staff_id = p_staff_id,
+      used_at = now(),
+      order_id = p_order_id
+    WHERE id = v_coupon_id;
+  END IF;
+
+  v_payment_status := CASE WHEN v_remaining_balance = 0 THEN 'paid' ELSE 'partial' END;
+
+  UPDATE public.orders
+  SET
+    subtotal_amount = v_subtotal_amount,
+    coupon_discount_amount = v_new_coupon_discount,
+    points_discount_amount = v_new_points_discount,
+    total_amount = v_new_total_amount,
+    paid_amount = v_new_paid,
+    payment_status = v_payment_status,
+    notes = CASE
+      WHEN trim(COALESCE(p_notes, '')) = '' THEN notes
+      WHEN notes IS NULL OR notes = '' THEN trim(p_notes)
+      ELSE notes || E'\n' || trim(p_notes)
+    END
+  WHERE id = p_order_id;
+
+  IF v_remaining_balance = 0 THEN
+    SELECT COUNT(*)
+    INTO v_existing_earn_count
+    FROM public.points_transactions pt
+    WHERE pt.order_id = p_order_id
+      AND pt.type = 'earn';
+
+    IF v_existing_earn_count = 0 THEN
+      v_points_added := round((v_new_paid / 100.0)::numeric, 2);
+
+      UPDATE public.customers
+      SET points_balance = points_balance + v_points_added
+      WHERE id = v_customer_id
+      RETURNING points_balance INTO v_balance;
+
+      INSERT INTO public.points_transactions (customer_id, order_id, type, amount, balance_after, staff_id, notes)
+      VALUES (v_customer_id, p_order_id, 'earn', v_points_added, v_balance, p_staff_id, COALESCE(p_notes, 'Points earned from fully paid order'));
+
+      UPDATE public.orders
+      SET points_earned = v_points_added
+      WHERE id = p_order_id;
+    ELSE
+      v_balance := v_balance_after_redeem;
+    END IF;
+  ELSE
+    v_balance := v_balance_after_redeem;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    p_order_id,
+    v_customer_id,
+    v_customer_name,
+    v_new_total_amount,
+    v_amount_due,
+    v_new_paid,
+    v_remaining_balance,
+    v_payment_status,
+    v_coupon_discount,
+    v_points_to_use,
+    v_coupon_name,
+    v_coupon_claim_code,
+    v_points_added,
+    v_balance;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+GRANT EXECUTE ON FUNCTION public.admin_add_order_payment(uuid, uuid, numeric, text, numeric, text) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_order_with_rfid(
+  p_staff_id uuid,
+  p_order_id uuid,
+  p_staff_rfid_uid text
+)
+RETURNS void AS $$
+DECLARE
+  v_staff_rfid_uid text := trim(COALESCE(p_staff_rfid_uid, ''));
+  v_customer_id uuid;
+  v_points_earned numeric(12,2) := 0;
+  v_points_redeemed numeric(12,2) := 0;
+BEGIN
+  IF v_staff_rfid_uid = '' THEN
+    RAISE EXCEPTION 'Staff RFID is required.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.staff
+    WHERE id = p_staff_id
+      AND is_active = true
+      AND rfid_uid = v_staff_rfid_uid
+  ) THEN
+    RAISE EXCEPTION 'RFID confirmation failed.';
+  END IF;
+
+  SELECT o.customer_id
+  INTO v_customer_id
+  FROM public.orders o
+  WHERE o.id = p_order_id
+  FOR UPDATE;
+
+  IF v_customer_id IS NULL THEN
+    RAISE EXCEPTION 'Order not found.';
+  END IF;
+
+  SELECT
+    COALESCE(SUM(CASE WHEN pt.type = 'earn' THEN pt.amount ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN pt.type = 'redeem' THEN pt.amount ELSE 0 END), 0)
+  INTO v_points_earned, v_points_redeemed
+  FROM public.points_transactions pt
+  WHERE pt.order_id = p_order_id;
+
+  IF v_points_earned > 0 OR v_points_redeemed > 0 THEN
+    UPDATE public.customers
+    SET points_balance = GREATEST(points_balance - v_points_earned + v_points_redeemed, 0)
+    WHERE id = v_customer_id;
+  END IF;
+
+  DELETE FROM public.points_transactions
+  WHERE order_id = p_order_id;
+
+  UPDATE public.coupon_redemptions
+  SET
+    status = 'claimed',
+    staff_id = NULL,
+    used_at = NULL,
+    order_id = NULL
+  WHERE order_id = p_order_id
+    AND status = 'used';
+
+  DELETE FROM public.orders
+  WHERE id = p_order_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+GRANT EXECUTE ON FUNCTION public.admin_delete_order_with_rfid(uuid, uuid, text) TO anon, authenticated;
 
 -- Deduct points as payment discount or redemption.
 CREATE OR REPLACE FUNCTION public.admin_deduct_points(
@@ -1223,12 +1657,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 GRANT EXECUTE ON FUNCTION public.customer_app_profile(uuid) TO anon, authenticated;
 
+DROP FUNCTION IF EXISTS public.customer_recent_orders(uuid);
+
 CREATE OR REPLACE FUNCTION public.customer_recent_orders(p_customer_id uuid)
 RETURNS TABLE (
   id uuid,
   order_number text,
   date_label text,
   order_status text,
+  payment_status text,
+  subtotal_amount numeric,
+  coupon_discount_amount numeric,
+  points_discount_amount numeric,
+  paid_amount numeric,
+  remaining_balance numeric,
   items text,
   total_amount numeric,
   points_earned numeric
@@ -1238,8 +1680,14 @@ BEGIN
   SELECT
     o.id,
     substring(o.id::text, 1, 8) AS order_number,
-    to_char(o.created_at, 'Mon DD, HH12:MI AM') AS date_label,
+    to_char(timezone('Asia/Manila', o.created_at), 'Mon DD, HH12:MI AM') AS date_label,
     o.order_status,
+    o.payment_status,
+    COALESCE(o.subtotal_amount, o.total_amount) AS subtotal_amount,
+    COALESCE(o.coupon_discount_amount, 0) AS coupon_discount_amount,
+    COALESCE(o.points_discount_amount, 0) AS points_discount_amount,
+    COALESCE(o.paid_amount, 0) AS paid_amount,
+    GREATEST(o.total_amount - COALESCE(o.paid_amount, 0), 0) AS remaining_balance,
     COALESCE(string_agg(oi.description, ' - ' ORDER BY oi.id), COALESCE(o.notes, 'Printing order')) AS items,
     o.total_amount,
     o.points_earned
@@ -1270,8 +1718,8 @@ BEGIN
     CASE WHEN pt.type = 'earn' THEN 'earn' ELSE 'redeem' END AS type,
     pt.amount,
     COALESCE(pt.notes, CASE WHEN pt.type = 'earn' THEN 'Points earned' ELSE 'Points redeemed' END) AS description,
-    to_char(pt.created_at, 'Mon DD, YYYY') AS date_label,
-    to_char(pt.created_at, 'HH12:MI AM') AS time_label
+    to_char(timezone('Asia/Manila', pt.created_at), 'Mon DD, YYYY') AS date_label,
+    to_char(timezone('Asia/Manila', pt.created_at), 'HH12:MI AM') AS time_label
   FROM public.points_transactions pt
   WHERE pt.customer_id = p_customer_id
   ORDER BY pt.created_at DESC
@@ -1353,6 +1801,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 GRANT EXECUTE ON FUNCTION public.customer_order_tracking(uuid, uuid) TO anon, authenticated;
 
+DROP FUNCTION IF EXISTS public.admin_list_orders();
+
 CREATE OR REPLACE FUNCTION public.admin_list_orders()
 RETURNS TABLE (
   id uuid,
@@ -1362,6 +1812,12 @@ RETURNS TABLE (
   customer_phone text,
   date_label text,
   order_status text,
+  payment_status text,
+  subtotal_amount numeric,
+  coupon_discount_amount numeric,
+  points_discount_amount numeric,
+  paid_amount numeric,
+  remaining_balance numeric,
   items text,
   total_amount numeric,
   points_earned numeric
@@ -1374,8 +1830,14 @@ BEGIN
     c.id AS customer_id,
     c.full_name AS customer_name,
     c.phone AS customer_phone,
-    to_char(o.created_at, 'Mon DD, HH12:MI AM') AS date_label,
+    to_char(timezone('Asia/Manila', o.created_at), 'Mon DD, HH12:MI AM') AS date_label,
     o.order_status,
+    o.payment_status,
+    COALESCE(o.subtotal_amount, o.total_amount) AS subtotal_amount,
+    COALESCE(o.coupon_discount_amount, 0) AS coupon_discount_amount,
+    COALESCE(o.points_discount_amount, 0) AS points_discount_amount,
+    COALESCE(o.paid_amount, 0) AS paid_amount,
+    GREATEST(o.total_amount - COALESCE(o.paid_amount, 0), 0) AS remaining_balance,
     COALESCE(string_agg(oi.description, ' - ' ORDER BY oi.id), COALESCE(o.notes, 'Printing order')) AS items,
     o.total_amount,
     o.points_earned
@@ -1427,6 +1889,8 @@ RETURNS void AS $$
 DECLARE
   v_order_id uuid;
   v_sort_order integer;
+  v_step_key text;
+  v_order_payment_status text;
   v_done_sort integer;
   v_next_step_id uuid;
   v_max_active_sort integer;
@@ -1440,13 +1904,24 @@ BEGIN
     RAISE EXCEPTION 'Invalid tracking status.';
   END IF;
 
-  SELECT order_id, sort_order
-  INTO v_order_id, v_sort_order
+  SELECT order_id, sort_order, step_key
+  INTO v_order_id, v_sort_order, v_step_key
   FROM public.order_tracking_steps
   WHERE id = p_step_id;
 
   IF v_order_id IS NULL THEN
     RAISE EXCEPTION 'Tracking step not found.';
+  END IF;
+
+  IF p_status = 'done' AND v_step_key = 'claimed' THEN
+    SELECT payment_status
+    INTO v_order_payment_status
+    FROM public.orders
+    WHERE id = v_order_id;
+
+    IF COALESCE(v_order_payment_status, 'unpaid') <> 'paid' THEN
+      RAISE EXCEPTION 'Order must be fully paid before marking as claimed.';
+    END IF;
   END IF;
 
   IF p_status = 'current' THEN

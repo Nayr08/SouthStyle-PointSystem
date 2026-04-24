@@ -315,7 +315,6 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Featured Actions</p>
-              <h2 className="mt-1 text-xl font-black text-slate-900">Start Here</h2>
             </div>
           </div>
 

@@ -76,7 +76,24 @@ type TrackingRow = {
   step_name: string;
   sort_order: number;
   status: 'pending' | 'current' | 'done';
+  updated_at: string;
 };
+
+function formatClaimedDateTime(value: string | null | undefined) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
 
 function OrderTrackingModal({ customerId, order, onClose }: { customerId: string; order: Order; onClose: () => void }) {
   const activeIndex = statusStepIndex[order.status];
@@ -102,10 +119,12 @@ function OrderTrackingModal({ customerId, order, onClose }: { customerId: string
         description: trackingSteps.find((item) => item.key === step.step_key)?.description || 'Production step update.',
         icon: trackingSteps.find((item) => item.key === step.step_key)?.icon || Clock3,
         status: step.status,
+        updatedAt: step.updated_at,
       }))
     : trackingSteps.map((step, index) => ({
         ...step,
         status: index < activeIndex || order.status === 'claimed' ? 'done' : index === activeIndex ? 'current' : 'pending',
+        updatedAt: '',
       }));
 
   const currentStepKey =
@@ -127,13 +146,35 @@ function OrderTrackingModal({ customerId, order, onClose }: { customerId: string
           </button>
         </div>
 
-        <div className="max-h-[70svh] overflow-y-auto p-5">
+        <div className="hide-scrollbar max-h-[70svh] overflow-y-auto p-5">
           <div className="mb-5 rounded-2xl bg-emerald-50 p-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Total</p>
-                <p className="mt-1 text-lg font-black text-slate-900">PHP {order.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Sub Total</p>
+                <p className="mt-1 text-lg font-black text-slate-900">PHP {order.subtotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="mt-2 text-xs font-semibold text-slate-500">
+                  Coupon - PHP {order.couponDiscountAmount.toFixed(2)}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Points - PHP {order.pointsDiscountAmount.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Total</p>
+                <p className="mt-1 text-sm font-black text-slate-900">PHP {order.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               </div>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Payment</p>
+                <p className="mt-1 text-sm font-black text-slate-900">
+                  {order.paymentStatus === 'paid' ? 'Fully Paid' : order.paymentStatus === 'partial' ? 'Partial Payment' : 'Unpaid'}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Paid PHP {order.paidAmount.toFixed(2)}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Needed for full paid PHP {order.remainingBalance.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 flex items-center justify-end">
               <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-ss-green">+{order.pointsEarned.toFixed(2)} pts</span>
             </div>
           </div>
@@ -164,6 +205,11 @@ function OrderTrackingModal({ customerId, order, onClose }: { customerId: string
                       {isDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700">Done</span>}
                     </div>
                     <p className={`mt-1 text-xs font-semibold leading-5 ${isActive ? 'text-slate-500' : 'text-slate-400'}`}>{step.description}</p>
+                    {step.key === 'claimed' && isDone && formatClaimedDateTime(step.updatedAt) && (
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        Claimed on {formatClaimedDateTime(step.updatedAt)}
+                      </p>
+                    )}
                   </div>
                 </div>
               );

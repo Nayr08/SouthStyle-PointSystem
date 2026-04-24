@@ -104,6 +104,12 @@ export default function RegisterSukiPage() {
     setError('');
   };
 
+  const isFormComplete =
+    fullName.trim().length > 0 &&
+    phone.length === 11 &&
+    pin.length === 4 &&
+    rfidUid.trim().length > 0;
+
   const openMemberOrders = async (member: MemberRow) => {
     setSelectedMember(member);
     setIsOrdersModalOpen(true);
@@ -154,6 +160,11 @@ export default function RegisterSukiPage() {
       return;
     }
 
+    if (!rfidUid.trim()) {
+      setError('RFID UID is required.');
+      return;
+    }
+
     setIsSaving(true);
 
     const { data, error: registerError } = await supabase.rpc('register_suki_customer', {
@@ -161,7 +172,7 @@ export default function RegisterSukiPage() {
       p_full_name: fullName.trim(),
       p_phone: phone,
       p_pin: pin,
-      p_rfid_uid: rfidUid.trim() || null,
+      p_rfid_uid: rfidUid.trim(),
     });
 
     setIsSaving(false);
@@ -232,12 +243,20 @@ export default function RegisterSukiPage() {
 
         {activeTab === 'register' && (
           <div className="grid gap-5 xl:grid-cols-[1.15fr_0.95fr]">
-            <form onSubmit={handleSubmit} className="modal-pop rounded-3xl border border-[#181d18]/14 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(15,23,15,0.45)]">
+            <form
+              onSubmit={handleSubmit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                }
+              }}
+              className="modal-pop rounded-3xl border border-[#181d18]/14 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(15,23,15,0.45)]"
+            >
               <div className="mb-5">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-ss-green">New Membership</p>
                 <h2 className="mt-1 text-xl font-black text-slate-900">Register Suki Member</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                  Create the customer login, optional RFID card, and QR backup token in one clean onboarding flow.
+                  Create the customer login, required RFID card, and QR backup token in one clean onboarding flow.
                 </p>
               </div>
 
@@ -289,7 +308,12 @@ export default function RegisterSukiPage() {
                     <input
                       value={rfidUid}
                       onChange={(event) => setRfidUid(event.target.value)}
-                      placeholder="Optional card UID"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                        }
+                      }}
+                      placeholder="Scan card UID"
                       className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
                     />
                   </AdminInput>
@@ -301,10 +325,10 @@ export default function RegisterSukiPage() {
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Registration Preview</p>
                     <p className="mt-1 text-sm font-black text-slate-900">{fullName.trim() || 'New Suki member account'}</p>
-                    <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                      This creates a customer login with mobile number access, a 4-digit PIN, and a QR backup token.
-                    </p>
-                  </div>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                    This creates a customer login with mobile number access, a 4-digit PIN, required RFID, and a QR backup token.
+                  </p>
+                </div>
                   <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[#181d18]/10 bg-white text-ss-green shadow-sm">
                     <Sparkles size={20} />
                   </div>
@@ -319,7 +343,7 @@ export default function RegisterSukiPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || !isFormComplete}
                   className="tap-button rounded-2xl bg-[linear-gradient(135deg,#078b3e,#10b981)] px-5 py-4 text-sm font-black text-white shadow-lg shadow-emerald-900/15 disabled:opacity-60"
                 >
                   {isSaving ? 'Registering...' : 'Register Suki'}
@@ -366,7 +390,7 @@ export default function RegisterSukiPage() {
                 <article className="rounded-2xl border border-[#181d18]/10 bg-[#f6f5f2] p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Onboarding Reminder</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                    Use a unique phone number, set a private 4-digit PIN, and only attach RFID when the physical card is ready.
+                    Use a unique phone number, set a private 4-digit PIN, and scan the RFID card before submitting the registration.
                   </p>
                 </article>
               </div>
@@ -391,7 +415,7 @@ export default function RegisterSukiPage() {
                     <input
                       value={memberSearch}
                       onChange={(event) => setMemberSearch(event.target.value)}
-                      placeholder="Name, phone, RFID"
+                      placeholder="RFID UID, Name, phone"
                       className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
                     />
                   </AdminInput>
