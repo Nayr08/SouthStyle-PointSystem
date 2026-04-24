@@ -7,7 +7,6 @@ type TierName = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | 'Titaniu
 
 interface PointsDisplayProps {
   points: number;
-  memberSince: string;
   tier?: TierName;
 }
 
@@ -20,12 +19,12 @@ const tierBadgeStyles: Record<TierName, string> = {
   Titanium: 'border-zinc-100/40 bg-zinc-300/20 text-zinc-50',
 };
 
-export function PointsDisplay({ points, memberSince, tier = 'Platinum' }: PointsDisplayProps) {
+export function PointsDisplay({ points, tier = 'Platinum' }: PointsDisplayProps) {
   return (
-    <div className="animate-rise tap-card -mb-16 overflow-hidden rounded-3xl border border-white/25 bg-white/12 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
-      <div className="relative p-5">
-        <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/15 blur-sm" />
-        <div className="absolute -bottom-14 left-16 h-28 w-28 rounded-full bg-emerald-300/15 blur-sm" />
+    <div className="animate-rise tap-card -mb-12 overflow-hidden rounded-3xl border border-white/25 bg-white/12 shadow-2xl shadow-green-950/25 backdrop-blur-xl">
+      <div className="relative p-4">
+        <div className="absolute -right-10 -top-12 h-28 w-28 rounded-full bg-white/15 blur-sm" />
+        <div className="absolute -bottom-12 left-16 h-24 w-24 rounded-full bg-emerald-300/15 blur-sm" />
 
         <div className="relative flex min-w-0 items-center gap-3">
             <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl">
@@ -47,16 +46,17 @@ export function PointsDisplay({ points, memberSince, tier = 'Platinum' }: Points
           </div>
         </div>
 
-        <div className="relative mt-6">
+        <div className="relative mt-4">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">Available Points</p>
-          <strong className="mt-1 block text-[44px] font-black leading-none tracking-tight text-white">
-            {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </strong>
-          <p className="mt-1 text-sm font-bold text-white/70">points</p>
-          <p className="mt-3 text-sm font-black text-emerald-200">
+          <div className="mt-1 flex items-end gap-2">
+            <strong className="text-[40px] font-black leading-none tracking-tight text-white">
+              {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </strong>
+            <p className="pb-1 text-sm font-bold uppercase tracking-[0.12em] text-white/70">points</p>
+          </div>
+          <p className="mt-2 text-sm font-black text-emerald-200">
             Worth PHP {points.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="mt-3 text-xs font-semibold text-white/60">{memberSince}</p>
         </div>
       </div>
     </div>

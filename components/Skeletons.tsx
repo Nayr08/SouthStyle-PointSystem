@@ -139,3 +139,63 @@ export function AccountSkeleton() {
     </>
   );
 }
+
+export function AdminShellSkeleton() {
+  return (
+    <main className="animate-page min-h-screen bg-[#f5f8f5] pb-10 text-slate-900">
+      <header className="green-hero rounded-b-[30px] px-5 pb-5 pt-6 text-white">
+        <div className="mx-auto max-w-4xl">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <SkeletonBlock className="h-11 w-11 rounded-2xl bg-white/20" />
+              <div>
+                <SkeletonBlock className="mb-2 h-3 w-24 rounded-full bg-white/20" />
+                <SkeletonBlock className="h-5 w-32 rounded-full bg-white/25" />
+                <SkeletonBlock className="mt-2 h-3 w-52 rounded-full bg-white/20" />
+              </div>
+            </div>
+            <SkeletonBlock className="h-11 w-11 rounded-2xl bg-white/20" />
+          </div>
+        </div>
+      </header>
+      <section className="mx-auto max-w-4xl px-5 pt-6">
+        <SkeletonBlock className="mb-5 h-44 rounded-3xl bg-white" />
+        <SkeletonBlock className="h-40 rounded-3xl bg-white" />
+      </section>
+    </main>
+  );
+}
+
+export function AdminDashboardSkeleton() {
+  return (
+    <main className="animate-page min-h-screen bg-[#f5f8f5] pb-10 text-slate-900">
+      <header className="green-hero rounded-b-[34px] px-5 pb-10 pt-6 text-white">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <SkeletonBlock className="h-12 w-12 rounded-2xl bg-white/20" />
+              <div>
+                <SkeletonBlock className="mb-2 h-3 w-24 rounded-full bg-white/20" />
+                <SkeletonBlock className="h-5 w-36 rounded-full bg-white/25" />
+              </div>
+            </div>
+            <SkeletonBlock className="h-11 w-11 rounded-2xl bg-white/20" />
+          </div>
+          <section className="rounded-[28px] border border-white/25 bg-white/15 p-5 shadow-2xl shadow-green-950/20 backdrop-blur-xl">
+            <SkeletonBlock className="mb-3 h-4 w-28 rounded-full bg-white/20" />
+            <SkeletonBlock className="mb-3 h-8 w-48 rounded-full bg-white/25" />
+            <SkeletonBlock className="h-4 w-28 rounded-full bg-white/20" />
+          </section>
+        </div>
+      </header>
+      <section className="mx-auto max-w-6xl px-5 pt-6">
+        <SkeletonBlock className="mb-4 h-6 w-32 rounded-full bg-emerald-100" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <SkeletonBlock key={item} className="h-48 rounded-3xl bg-white" />
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}

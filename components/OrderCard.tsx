@@ -42,12 +42,24 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
-export function OrderCard({ order }: { order: Order }) {
+export function OrderCard({ order, onClick }: { order: Order; onClick?: () => void }) {
   const config = statusConfig[order.status];
   const Icon = config.icon;
 
   return (
-    <article className="tap-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <article
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="tap-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
       <div className="flex gap-4">
         <div className={`h-fit rounded-xl bg-gradient-to-br ${config.iconBox} p-3`}>
           <Icon size={20} />
@@ -56,7 +68,8 @@ export function OrderCard({ order }: { order: Order }) {
           <div className="mb-2 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-black text-slate-900">{order.items.split(' - ')[0]}</p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">Order #{order.orderNumber} • {order.date}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-[0.08em] text-slate-500">Order #{order.orderNumber}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{order.date}</p>
             </div>
             <StatusBadge status={order.status} />
           </div>

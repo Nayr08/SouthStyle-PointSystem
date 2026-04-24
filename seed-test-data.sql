@@ -17,16 +17,18 @@ DECLARE
   v_order_2 uuid;
   v_order_3 uuid;
 BEGIN
-  -- Demo staff. auth_id is NULL so this is sample data only.
-  INSERT INTO staff (full_name, role, is_active)
-  VALUES ('SouthStyle Owner', 'owner', true)
+  -- Demo staff/admin login:
+  -- phone: 09170000000
+  -- PIN:   1234
+  INSERT INTO staff (full_name, phone, pin_hash, role, is_active)
+  VALUES ('SouthStyle Owner', '09170000000', extensions.crypt('1234', extensions.gen_salt('bf')), 'owner', true)
   RETURNING id INTO v_staff_id;
 
   INSERT INTO customers (full_name, phone, pin_hash, points_balance, created_by)
   VALUES
-    ('Pristia Candra', '09175550148', 'demo-pin-1234', 12429.00, v_staff_id),
-    ('Juan Dela Cruz', '09175550149', 'demo-pin-2468', 86.50, v_staff_id),
-    ('Maria Santos', '09175550150', 'demo-pin-1357', 250.00, v_staff_id)
+    ('Pristia Candra', '09175550148', extensions.crypt('1234', extensions.gen_salt('bf')), 12429.00, v_staff_id),
+    ('Juan Dela Cruz', '09175550149', extensions.crypt('2468', extensions.gen_salt('bf')), 86.50, v_staff_id),
+    ('Maria Santos', '09175550150', extensions.crypt('1357', extensions.gen_salt('bf')), 250.00, v_staff_id)
   RETURNING id INTO v_customer_1;
 
   SELECT id INTO v_customer_1 FROM customers WHERE phone = '09175550148';
@@ -79,6 +81,7 @@ END $$;
 
 -- Quick checks after running:
 SELECT full_name, phone, points_balance FROM customers ORDER BY created_at;
+SELECT full_name, phone, role FROM staff ORDER BY created_at;
 SELECT rfid_uid, qr_token, is_active FROM cards ORDER BY created_at;
 SELECT order_status, payment_status, total_amount, points_earned FROM orders ORDER BY created_at;
 SELECT type, amount, balance_after, notes FROM points_transactions ORDER BY created_at;

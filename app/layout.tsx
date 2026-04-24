@@ -1,6 +1,7 @@
 ﻿import type { Metadata, Viewport } from 'next';
 import { Geist_Mono, Poppins } from 'next/font/google';
 import { AuthGate } from '@/components/AuthGate';
+import { Toaster } from 'react-hot-toast';
 import './globals.css';
 
 const poppins = Poppins({
@@ -37,6 +38,18 @@ export default function RootLayout({
     <html lang="en" className={`${poppins.variable} ${geistMono.variable} h-full`}>
       <body>
         <AuthGate>{children}</AuthGate>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 2400,
+            style: {
+              borderRadius: '16px',
+              background: '#064e2a',
+              color: '#ffffff',
+              fontWeight: '700',
+            },
+          }}
+        />
       </body>
     </html>
   );
