@@ -10,3 +10,12 @@ export const tierLabel: Record<TierName, string> = {
   Diamond: 'Diamond',
   Titanium: 'Titanium',
 };
+
+export const tierMinimum: Record<TierName, number> = {
+  Bronze: 100,
+  Silver: 300,
+  Gold: 500,
+  Platinum: 1000,
+  Diamond: 3000,
+  Titanium: 5000,
+};

@@ -240,6 +240,7 @@ export default function AdminDashboardPage() {
   const dashboardTitle = hasElevatedAccess ? 'Admin Dashboard' : 'Staff Dashboard';
 
   return (
+    <>
     <main className="animate-page min-h-screen bg-[#f0ede6] pb-10 text-slate-900">
       <header className={`green-hero rounded-b-[30px] px-5 pt-6 text-white transition-all duration-300 ${isHeaderCollapsed ? 'pb-4' : 'pb-8'}`}>
         <div className="mx-auto max-w-6xl">
@@ -294,9 +295,9 @@ export default function AdminDashboardPage() {
 
                 <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                   {quickStats.map((stat) => (
-                    <article key={stat.label} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4">
+                    <article key={stat.label} className="overflow-hidden rounded-2xl border border-white/15 bg-white/10 px-4 py-4">
                       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/55">{stat.label}</p>
-                      <p className="mt-2 text-2xl font-black text-white">{stat.value}</p>
+                      <p title={stat.value} className="mt-2 truncate text-2xl font-black text-white">{stat.value}</p>
                       <p className="mt-1 text-xs font-semibold leading-5 text-white/65">{stat.helper}</p>
                     </article>
                   ))}
@@ -413,16 +414,16 @@ export default function AdminDashboardPage() {
           })}
         </div>
       </section>
-
+    </main>
       {isLogoutConfirmOpen && (
-        <div className="modal-pop fixed inset-0 z-[70] flex items-end bg-slate-950/45 p-4 sm:items-center sm:justify-center">
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4">
           <button
             type="button"
             aria-label="Close logout confirmation"
             className="absolute inset-0 cursor-default"
             onClick={() => setIsLogoutConfirmOpen(false)}
           />
-          <section className="relative w-full max-w-md rounded-[30px] bg-white p-5 shadow-2xl shadow-slate-950/20">
+          <section className="modal-pop relative w-full max-w-md rounded-[30px] bg-white p-5 shadow-2xl shadow-slate-950/20">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-500">Logout</p>
@@ -459,6 +460,6 @@ export default function AdminDashboardPage() {
           </section>
         </div>
       )}
-    </main>
+    </>
   );
 }

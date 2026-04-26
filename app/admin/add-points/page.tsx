@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { BadgePlus, CheckCircle2, PhilippinePeso, Search, TicketPercent, UserRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
+import { formatCompactStatValue } from '@/lib/number-format';
 import { type TierName } from '@/lib/tiers';
 import { supabase } from '@/lib/supabase/client';
 
@@ -575,29 +576,29 @@ export default function AddPointsPage() {
             </div>
 
             <div className="grid gap-3">
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Order Total</p>
-                <p className="mt-2 text-xl font-black text-slate-900">PHP {summary.orderTotal.toFixed(2)}</p>
+                <p title={`PHP ${summary.orderTotal.toFixed(2)}`} className="mt-2 truncate text-xl font-black tabular-nums text-slate-900">PHP {formatCompactStatValue(summary.orderTotal)}</p>
               </div>
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Paying Now</p>
-                <p className="mt-2 text-xl font-black text-slate-900">PHP {summary.requestedPayment.toFixed(2)}</p>
+                <p title={`PHP ${summary.requestedPayment.toFixed(2)}`} className="mt-2 truncate text-xl font-black tabular-nums text-slate-900">PHP {formatCompactStatValue(summary.requestedPayment)}</p>
               </div>
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Coupon Discount</p>
-                <p className="mt-2 text-xl font-black text-slate-900">PHP {summary.couponDiscount.toFixed(2)}</p>
+                <p title={`PHP ${summary.couponDiscount.toFixed(2)}`} className="mt-2 truncate text-xl font-black tabular-nums text-slate-900">PHP {formatCompactStatValue(summary.couponDiscount)}</p>
               </div>
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Points Used</p>
-                <p className="mt-2 text-xl font-black text-slate-900">{summary.pointsUsed.toFixed(2)} pts</p>
+                <p title={`${summary.pointsUsed.toFixed(2)} pts`} className="mt-2 truncate text-xl font-black tabular-nums text-slate-900">{formatCompactStatValue(summary.pointsUsed)} pts</p>
               </div>
-              <div className="rounded-[26px] bg-[linear-gradient(135deg,#078b3e,#10b981)] p-5 text-white shadow-lg shadow-emerald-900/20">
+              <div className="overflow-hidden rounded-[26px] bg-[linear-gradient(135deg,#078b3e,#10b981)] p-5 text-white shadow-lg shadow-emerald-900/20">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-50/85">Remaining Balance</p>
-                <p className="mt-2 text-3xl font-black">PHP {summary.remainingBalance.toFixed(2)}</p>
+                <p title={`PHP ${summary.remainingBalance.toFixed(2)}`} className="mt-2 truncate text-3xl font-black tabular-nums">PHP {formatCompactStatValue(summary.remainingBalance)}</p>
               </div>
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Points To Earn</p>
-                <p className="mt-2 text-xl font-black text-slate-900">+{summary.pointsEarned.toFixed(2)} pts</p>
+                <p title={`+${summary.pointsEarned.toFixed(2)} pts`} className="mt-2 truncate text-xl font-black tabular-nums text-slate-900">+{formatCompactStatValue(summary.pointsEarned)} pts</p>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
                   Points are awarded only when remaining balance reaches zero.
                 </p>

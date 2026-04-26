@@ -93,7 +93,7 @@ export function CustomerPullToRefresh({ children }: { children: ReactNode }) {
           pullDistance > 8 || isRefreshing ? 'opacity-100' : 'opacity-0'
         }`}
         style={{
-          transform: `translate(-50%, ${Math.max(0, pullDistance - 32)}px)`,
+          transform: `translateX(-50%) translateY(${Math.max(0, pullDistance - 32)}px)`,
         }}
       >
         <RefreshCw

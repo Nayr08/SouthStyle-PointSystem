@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { ChevronRight, IdCard, Phone, ScanLine, Search, ShoppingBag, Sparkles, UserRound, UsersRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
+import { formatCompactStatValue } from '@/lib/number-format';
 import { tierNames, type TierName } from '@/lib/tiers';
 import { supabase } from '@/lib/supabase/client';
 
@@ -520,13 +521,13 @@ export default function RegisterSukiPage() {
             </div>
 
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f5f3ee] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f5f3ee] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Available Points</p>
-                <p className="mt-2 text-2xl font-black text-slate-900">{selectedMember.points_balance.toFixed(2)} <span className="text-sm text-slate-500">pts</span></p>
+                <p title={`${selectedMember.points_balance.toFixed(2)} pts`} className="mt-2 truncate text-2xl font-black tabular-nums text-slate-900">{formatCompactStatValue(selectedMember.points_balance)} <span className="text-sm text-slate-500">pts</span></p>
               </div>
-              <div className="rounded-2xl border border-[#181d18]/10 bg-[#f5f3ee] p-4">
+              <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f5f3ee] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Lifetime Earned</p>
-                <p className="mt-2 text-2xl font-black text-slate-900">{selectedMember.lifetime_earned.toFixed(2)} <span className="text-sm text-slate-500">pts</span></p>
+                <p title={`${selectedMember.lifetime_earned.toFixed(2)} pts`} className="mt-2 truncate text-2xl font-black tabular-nums text-slate-900">{formatCompactStatValue(selectedMember.lifetime_earned)} <span className="text-sm text-slate-500">pts</span></p>
               </div>
             </div>
 
