@@ -81,10 +81,11 @@ export default function AddPointsPage() {
 
   const orderTotal = Number(purchaseAmount || 0);
   const downpayment = Number(downpaymentAmount || 0);
+  const isOrderTotalValid = Number.isFinite(orderTotal) && orderTotal > 0;
+  const isDownpaymentValid = Number.isFinite(downpayment) && downpayment >= 0;
   const couponLooksEntered = couponCode.trim().length > 0;
   const normalizedCouponCode = couponCode.trim();
   const pointsRequested = Number(pointsToUse || 0);
-  const requestedPayment = downpayment > 0 ? downpayment : orderTotal;
   const activeCouponCheck = couponLooksEntered ? couponCheck : null;
 
   const summary = useMemo(() => {
@@ -106,7 +107,7 @@ export default function AddPointsPage() {
     const maxPointsUsable = Math.max(orderTotal - couponDiscount, 0);
     const pointsUsed = Math.max(Math.min(pointsRequested || 0, customer?.points_balance ?? 0, maxPointsUsable), 0);
     const amountDue = Math.max(orderTotal - couponDiscount - pointsUsed, 0);
-    const paymentToApply = Math.max(Math.min(requestedPayment, amountDue || requestedPayment), 0);
+    const paymentToApply = Math.max(Math.min(downpayment || 0, amountDue), 0);
 
     return {
       orderTotal,
@@ -124,9 +125,9 @@ export default function AddPointsPage() {
     activeCouponCheck?.coupon_discount,
     activeCouponCheck?.is_valid,
     customer?.points_balance,
+    downpayment,
     orderTotal,
     pointsRequested,
-    requestedPayment,
     result,
   ]);
 
@@ -218,9 +219,12 @@ export default function AddPointsPage() {
     || isFinding
     || !customer
     || !lookup.trim()
-    || !(orderTotal > 0)
-    || !(requestedPayment > 0)
-    || requestedPayment > summary.amountDue;
+    || !notes.trim()
+    || !isOrderTotalValid
+    || !isDownpaymentValid
+    || downpayment > summary.amountDue
+    || isCheckingCoupon
+    || (couponLooksEntered && !activeCouponCheck?.is_valid);
 
   const findCustomer = async () => {
     const trimmedLookup = lookup.trim();
@@ -290,18 +294,33 @@ export default function AddPointsPage() {
       return;
     }
 
-    if (!(orderTotal > 0)) {
+    if (!notes.trim()) {
+      toast.error('Order name is required.');
+      return;
+    }
+
+    if (!isOrderTotalValid) {
       toast.error('Enter a valid order total.');
       return;
     }
 
-    if (!(requestedPayment > 0)) {
-      toast.error('Enter a valid downpayment amount.');
+    if (!isDownpaymentValid) {
+      toast.error('Downpayment cannot be negative.');
       return;
     }
 
-    if (requestedPayment > summary.amountDue) {
+    if (downpayment > summary.amountDue) {
       toast.error('Downpayment cannot be greater than amount due.');
+      return;
+    }
+
+    if (couponLooksEntered && isCheckingCoupon) {
+      toast.error('Please wait for coupon verification to finish.');
+      return;
+    }
+
+    if (couponLooksEntered && !activeCouponCheck?.is_valid) {
+      toast.error(activeCouponCheck?.message || 'Coupon code is not available.');
       return;
     }
 
@@ -339,7 +358,7 @@ export default function AddPointsPage() {
   };
 
   return (
-    <AdminShell title="Add Order" subtitle="Create a paid printing order and award points automatically.">
+    <AdminShell title="Add Order" subtitle="Create a printing order, record payment, and award points automatically when fully paid.">
       <div className="grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
         <form onSubmit={handleSubmit} className="grid gap-5">
           <section className="modal-pop rounded-3xl border border-[#181d18]/14 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(15,23,15,0.45)]">
@@ -418,7 +437,7 @@ export default function AddPointsPage() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ss-green">Order Details</p>
               <h2 className="mt-1 text-xl font-black text-slate-900">Capture Payment</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                Enter total order first, then the downpayment to collect now. Points are awarded only when the order becomes fully paid.
+                Enter total order first, then the cash collected now. Leave downpayment at 0 when nothing is paid yet.
               </p>
             </div>
 
@@ -443,7 +462,7 @@ export default function AddPointsPage() {
                     value={downpaymentAmount}
                     onChange={(event) => setDownpaymentAmount(event.target.value)}
                     inputMode="decimal"
-                    placeholder="Defaults to full payment"
+                    placeholder="0.00 if none"
                     className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
                   />
                 </AdminInput>
@@ -494,6 +513,28 @@ export default function AddPointsPage() {
               </FieldShell>
             </div>
 
+            <div className="mt-4">
+              <FieldShell label="Order Name">
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Example: Sublimation shirt order"
+                  className="min-h-28 w-full rounded-2xl border border-[#181d18]/14 bg-white px-4 py-4 text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400 transition-colors focus:border-[#181d18]/20"
+                />
+              </FieldShell>
+            </div>
+
+            <div className={`mt-4 rounded-[24px] border p-4 ${summary.pointsUsed > 0 ? 'border-[#181d18]/14 bg-[#f7f2e8]' : 'border-[#181d18]/10 bg-[#f8f6f1]'}`}>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Points Payment</p>
+              <p className="mt-1 text-sm font-black text-slate-900">
+                {summary.pointsUsed > 0 ? `${summary.pointsUsed.toFixed(2)} points will be used on this order` : 'No points applied yet'}
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                Available customer balance: {customer ? `${customer.points_balance.toFixed(2)} pts` : 'Find the customer first'}.
+                Points are awarded after full payment and are based on actual paid amount.
+              </p>
+            </div>
+
             <div className={`mt-4 rounded-[24px] border p-4 ${couponLooksEntered ? 'border-[#181d18]/14 bg-[#f5f3ee]' : 'border-[#181d18]/10 bg-[#f8f6f1]'}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -525,26 +566,6 @@ export default function AddPointsPage() {
               </div>
             </div>
 
-            <div className={`mt-4 rounded-[24px] border p-4 ${summary.pointsUsed > 0 ? 'border-[#181d18]/14 bg-[#f7f2e8]' : 'border-[#181d18]/10 bg-[#f8f6f1]'}`}>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Points Payment</p>
-              <p className="mt-1 text-sm font-black text-slate-900">
-                {summary.pointsUsed > 0 ? `${summary.pointsUsed.toFixed(2)} points will be used on this order` : 'No points applied yet'}
-              </p>
-              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                Available customer balance: {customer ? `${customer.points_balance.toFixed(2)} pts` : 'Find the customer first'}.
-                Points are awarded after full payment and are based on actual paid amount.
-              </p>
-            </div>
-
-            <FieldShell label="Notes">
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Example: Sublimation shirt order"
-                className="min-h-28 w-full rounded-2xl border border-[#181d18]/14 bg-white px-4 py-4 text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400 transition-colors focus:border-[#181d18]/20"
-              />
-            </FieldShell>
-
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -571,7 +592,7 @@ export default function AddPointsPage() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ss-green">Payment Summary</p>
               <h2 className="mt-1 text-xl font-black text-slate-900">What the customer pays</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                This panel mirrors cashier flow for installments. Downpayment can be partial, while points are awarded only when fully paid.
+                This panel mirrors cashier flow for installments. Downpayment can be partial or zero, while points are awarded only when fully paid.
               </p>
             </div>
 
@@ -594,7 +615,9 @@ export default function AddPointsPage() {
               </div>
               <div className="overflow-hidden rounded-[26px] bg-[linear-gradient(135deg,#078b3e,#10b981)] p-5 text-white shadow-lg shadow-emerald-900/20">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-50/85">Remaining Balance</p>
-                <p title={`PHP ${summary.remainingBalance.toFixed(2)}`} className="mt-2 truncate text-3xl font-black tabular-nums">PHP {formatCompactStatValue(summary.remainingBalance)}</p>
+                <p title={`PHP ${summary.remainingBalance.toFixed(2)}`} className="mt-2 break-words text-3xl font-black tabular-nums leading-tight">
+                  PHP {summary.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
               <div className="overflow-hidden rounded-2xl border border-[#181d18]/10 bg-[#f8f6f1] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Points To Earn</p>

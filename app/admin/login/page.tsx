@@ -54,13 +54,13 @@ export default function AdminLoginPage() {
     <main className="login-shell min-h-screen px-5 py-8 text-white">
       <section className="animate-page mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[430px] flex-col justify-center">
         <div className="animate-rise mb-7 text-center">
-          <div className="mx-auto mb-5 grid h-24 w-24 place-items-center">
+          <div className="mx-auto mb-5 grid h-32 w-32 place-items-center">
             <Image
               src="/southstyle-logo.png"
               alt="Southstyle logo"
-              width={92}
-              height={92}
-              className="h-[92px] w-[92px] object-contain drop-shadow-2xl"
+              width={128}
+              height={128}
+              className="h-32 w-32 object-contain drop-shadow-2xl"
               priority
             />
           </div>

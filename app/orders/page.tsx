@@ -85,21 +85,29 @@ export default function OrdersPage() {
   const { profile, transactions, isLoading, refresh } = useCustomerData();
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [isRewardsLoading, setIsRewardsLoading] = useState(true);
+  const [rewardsReloadKey, setRewardsReloadKey] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [couponHistory, setCouponHistory] = useState<RedeemHistory[]>([]);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<RedeemHistory | null>(null);
   const [claimError, setClaimError] = useState('');
   const [isClaiming, setIsClaiming] = useState(false);
+  const customerId = profile?.id;
 
   useEffect(() => {
+    let isCancelled = false;
+
     async function loadRewards() {
-      if (!profile) return;
+      if (!customerId) return;
       setIsRewardsLoading(true);
       const [couponsResult, historyResult] = await Promise.all([
-        supabase.rpc('customer_available_coupons', { p_customer_id: profile.id }),
-        supabase.rpc('customer_coupon_history', { p_customer_id: profile.id }),
+        supabase.rpc('customer_available_coupons', { p_customer_id: customerId }),
+        supabase.rpc('customer_coupon_history', { p_customer_id: customerId }),
       ]);
+
+      if (isCancelled) {
+        return;
+      }
 
       setRewards(
         ((couponsResult.data || []) as Array<{
@@ -149,9 +157,12 @@ export default function OrdersPage() {
     }
 
     loadRewards();
-  }, [profile]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [customerId, rewardsReloadKey]);
 
-  if (isLoading || isRewardsLoading || !profile) {
+  if (isLoading || !profile) {
     return <RedeemSkeleton />;
   }
 
@@ -191,6 +202,7 @@ export default function OrdersPage() {
 
     setSelectedReward(null);
     await refresh();
+    setRewardsReloadKey((current) => current + 1);
     toast.success(`${claimedName} claimed`);
   };
 
@@ -227,7 +239,11 @@ export default function OrdersPage() {
           </div>
 
           <div className="stagger -mx-5 mb-7 flex gap-3 overflow-x-auto px-5 pb-2 hide-scrollbar">
-            {rewards.map((reward) => {
+            {isRewardsLoading && rewards.length === 0 ? (
+              [1, 2].map((item) => (
+                <div key={item} className="min-h-[178px] min-w-[248px] rounded-[26px] bg-emerald-100 skeleton-shimmer" />
+              ))
+            ) : rewards.map((reward) => {
               const Icon = reward.icon;
               return (
                 <button
@@ -273,10 +289,12 @@ export default function OrdersPage() {
               )}
             </div>
             <div className="stagger space-y-3">
-              {redeemPreview.map((item) => (
+              {isRewardsLoading && redeemPreview.length === 0 ? (
+                <div className="h-24 rounded-2xl bg-white skeleton-shimmer" />
+              ) : redeemPreview.map((item) => (
                 <RedeemHistoryItem key={item.id} item={item} onClick={item.type === 'coupon' ? () => setSelectedHistoryItem(item) : undefined} />
               ))}
-              {redeemHistory.length === 0 && (
+              {!isRewardsLoading && redeemHistory.length === 0 && (
                 <p className="rounded-2xl bg-white p-5 text-center text-sm font-bold text-slate-500">No redemptions yet.</p>
               )}
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Crown, Phone, ShieldCheck, Trash2, UserPlus, UserRound, X } from 'lucide-react';
+import { Crown, Phone, ScanLine, ShieldCheck, Trash2, UserPlus, UserRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
 import { supabase } from '@/lib/supabase/client';
@@ -10,6 +10,7 @@ type StaffRow = {
   id: string;
   full_name: string;
   phone: string | null;
+  rfid_uid: string | null;
   role: 'owner' | 'admin' | 'staff';
   is_active: boolean;
   created_at_label: string;
@@ -21,6 +22,7 @@ export default function StaffPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [rfidUid, setRfidUid] = useState('');
   const [role, setRole] = useState<'owner' | 'staff'>('staff');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -91,6 +93,7 @@ export default function StaffPage() {
     setFullName('');
     setPhone('');
     setPin('');
+    setRfidUid('');
     setRole('staff');
     setError('');
   };
@@ -100,6 +103,27 @@ export default function StaffPage() {
     if (!staff) return;
 
     setError('');
+
+    if (!fullName.trim()) {
+      setError('Staff name is required.');
+      return;
+    }
+
+    if (phone.length !== 11) {
+      setError('Mobile number must be 11 digits.');
+      return;
+    }
+
+    if (pin.length !== 4) {
+      setError('PIN must be exactly 4 digits.');
+      return;
+    }
+
+    if (!rfidUid.trim()) {
+      setError('RFID code is required.');
+      return;
+    }
+
     setIsSaving(true);
 
     const { error: staffError } = await supabase.rpc('admin_create_staff', {
@@ -107,12 +131,20 @@ export default function StaffPage() {
       p_full_name: fullName.trim(),
       p_phone: phone,
       p_pin: pin,
+      p_rfid_uid: rfidUid.trim(),
       p_role: role,
     });
 
     setIsSaving(false);
 
     if (staffError) {
+      const message = staffError.message.toLowerCase();
+
+      if (message.includes('staff_rfid_uid_key')) {
+        setError('This RFID code is already assigned to another staff account.');
+        return;
+      }
+
       setError(staffError.message || 'Could not add staff.');
       return;
     }
@@ -196,6 +228,18 @@ export default function StaffPage() {
                   type="password"
                   maxLength={4}
                   placeholder="1234"
+                  className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
+                />
+              </AdminInput>
+            </FieldShell>
+
+            <FieldShell label="RFID Code">
+              <AdminInput>
+                <ScanLine size={18} className="text-ss-green" />
+                <input
+                  value={rfidUid}
+                  onChange={(event) => setRfidUid(event.target.value)}
+                  placeholder="Scan or enter RFID code"
                   className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
                 />
               </AdminInput>
@@ -287,6 +331,9 @@ export default function StaffPage() {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-slate-900">{member.full_name}</p>
                           <p className="mt-1 text-xs font-semibold text-slate-500">{member.phone || 'No phone set'}</p>
+                          <p className="mt-1 truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                            RFID: {member.rfid_uid || 'No RFID assigned'}
+                          </p>
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <span
@@ -333,6 +380,9 @@ export default function StaffPage() {
                 <p className="mt-2 text-sm font-semibold text-slate-500">
                   {selectedMember.phone || 'No phone set'}
                 </p>
+                <p className="mt-2 break-all text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  RFID: {selectedMember.rfid_uid || 'No RFID assigned'}
+                </p>
               </div>
               <button
                 type="button"
@@ -355,6 +405,10 @@ export default function StaffPage() {
                 <p className="mt-2 text-sm font-black text-slate-900">
                   {selectedMember.is_active ? 'Active account' : 'Inactive account'}
                 </p>
+              </article>
+              <article className="rounded-2xl bg-slate-50 p-4 sm:col-span-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">RFID Code</p>
+                <p className="mt-2 break-all text-sm font-black text-slate-900">{selectedMember.rfid_uid || 'No RFID assigned'}</p>
               </article>
               <article className="rounded-2xl bg-slate-50 p-4 sm:col-span-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Created</p>

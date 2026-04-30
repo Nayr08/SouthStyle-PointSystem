@@ -71,6 +71,12 @@ CREATE TABLE IF NOT EXISTS public.order_tracking_steps (
 
 CREATE INDEX IF NOT EXISTS idx_order_tracking_steps_order_id ON public.order_tracking_steps(order_id);
 
+-- Keep public tables protected from direct anon table access.
+-- The app reads/writes them through SECURITY DEFINER RPC functions below.
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupon_redemptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_tracking_steps ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.orders
 ADD COLUMN IF NOT EXISTS paid_amount numeric(12,2) NOT NULL DEFAULT 0;
 
@@ -584,8 +590,8 @@ BEGIN
 
   v_paid_amount := COALESCE(p_paid_amount, p_purchase_amount);
 
-  IF v_paid_amount <= 0 THEN
-    RAISE EXCEPTION 'Paid amount must be greater than zero.';
+  IF v_paid_amount < 0 THEN
+    RAISE EXCEPTION 'Paid amount cannot be negative.';
   END IF;
 
   SELECT x.customer_id, x.full_name
@@ -648,7 +654,11 @@ BEGIN
   END IF;
 
   v_remaining_balance := GREATEST(v_amount_due - v_paid_amount, 0);
-  v_payment_status := CASE WHEN v_remaining_balance = 0 THEN 'paid' ELSE 'partial' END;
+  v_payment_status := CASE
+    WHEN v_remaining_balance = 0 THEN 'paid'
+    WHEN v_paid_amount = 0 THEN 'unpaid'
+    ELSE 'partial'
+  END;
 
   IF v_payment_status = 'paid' THEN
     v_points_added := round((v_paid_amount / 100.0)::numeric, 2);
@@ -1479,11 +1489,13 @@ CREATE OR REPLACE FUNCTION public.admin_create_staff(
   p_full_name text,
   p_phone text,
   p_pin text,
+  p_rfid_uid text,
   p_role text
 )
 RETURNS uuid AS $$
 DECLARE
   v_staff_id uuid;
+  v_rfid_uid text := NULLIF(trim(COALESCE(p_rfid_uid, '')), '');
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.staff
@@ -1502,12 +1514,13 @@ BEGIN
     RAISE EXCEPTION 'PIN must be exactly 4 digits.';
   END IF;
 
-  INSERT INTO public.staff (full_name, phone, pin_hash, role, is_active)
-  VALUES (trim(p_full_name), regexp_replace(p_phone, '\D', '', 'g'), extensions.crypt(p_pin, extensions.gen_salt('bf')), p_role, true)
+  INSERT INTO public.staff (full_name, phone, pin_hash, rfid_uid, role, is_active)
+  VALUES (trim(p_full_name), regexp_replace(p_phone, '\D', '', 'g'), extensions.crypt(p_pin, extensions.gen_salt('bf')), v_rfid_uid, p_role, true)
   ON CONFLICT (phone)
   DO UPDATE SET
     full_name = EXCLUDED.full_name,
     pin_hash = EXCLUDED.pin_hash,
+    rfid_uid = EXCLUDED.rfid_uid,
     role = EXCLUDED.role,
     is_active = true
   RETURNING id INTO v_staff_id;
@@ -1516,13 +1529,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
-GRANT EXECUTE ON FUNCTION public.admin_create_staff(uuid, text, text, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_create_staff(uuid, text, text, text, text, text) TO anon, authenticated;
+
+DROP FUNCTION IF EXISTS public.admin_list_staff();
 
 CREATE OR REPLACE FUNCTION public.admin_list_staff()
 RETURNS TABLE (
   id uuid,
   full_name text,
   phone text,
+  rfid_uid text,
   role text,
   is_active boolean,
   created_at_label text
@@ -1533,6 +1549,7 @@ BEGIN
     s.id,
     s.full_name,
     s.phone,
+    s.rfid_uid,
     s.role,
     s.is_active,
     to_char(s.created_at, 'Mon DD, YYYY') AS created_at_label

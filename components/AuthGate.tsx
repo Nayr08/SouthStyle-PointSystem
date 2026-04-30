@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { ArrowLeftRight, Delete, Phone, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase/client';
-import { CUSTOMER_SESSION_KEY, CustomerSession, PHONE_KEY, setCustomerSession } from '@/lib/customer-session';
+import { clearCustomerSession, CUSTOMER_SESSION_KEY, CustomerSession, PHONE_KEY, setCustomerSession } from '@/lib/customer-session';
 import { CustomerPullToRefresh } from '@/components/CustomerPullToRefresh';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 
@@ -86,6 +86,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
 
+    const handleSessionExpired = () => {
+      clearCustomerSession();
+      setIsUnlocked(false);
+      setSavedPhone('');
+      setPin('');
+      setError('');
+      setErrorTarget(null);
+      window.setTimeout(() => {
+        setError('Your account is no longer active. Please contact staff.');
+        setErrorTarget('phone');
+      }, 0);
+    };
+
+    window.addEventListener('southstyle:customer-session-expired', handleSessionExpired);
+
     let isCancelled = false;
 
     const checkForAppUpdate = async () => {
@@ -137,6 +152,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
     return () => {
       isCancelled = true;
+      window.removeEventListener('southstyle:customer-session-expired', handleSessionExpired);
     };
   }, [hasHydrated, isAdminRoute]);
 
@@ -296,13 +312,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <main className="login-shell min-h-screen overflow-hidden px-5 py-8 text-white">
           <section className="animate-page mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[430px] flex-col justify-center">
             <div className="animate-rise mb-7 text-center">
-              <div className="mx-auto mb-5 grid h-24 w-24 place-items-center">
+              <div className="mx-auto mb-5 grid h-32 w-32 place-items-center">
                 <Image
                   src="/southstyle-logo.png"
                   alt="Southstyle logo"
-                  width={92}
-                  height={92}
-                  className="h-[92px] w-[92px] object-contain drop-shadow-2xl"
+                  width={128}
+                  height={128}
+                  className="h-32 w-32 object-contain drop-shadow-2xl"
                   priority
                 />
               </div>
@@ -368,13 +384,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-6 py-5 text-center">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.16),transparent_28%)]" />
             <div className="animate-rise relative z-10">
-              <div className="mx-auto mb-4 grid h-20 w-20 place-items-center">
+              <div className="mx-auto mb-4 grid h-24 w-24 place-items-center">
                 <Image
                   src="/southstyle-logo.png"
                   alt="Southstyle logo"
-                  width={78}
-                  height={78}
-                  className="h-[78px] w-[78px] object-contain drop-shadow-2xl"
+                  width={96}
+                  height={96}
+                  className="h-24 w-24 object-contain drop-shadow-2xl"
                   priority
                 />
               </div>

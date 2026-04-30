@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { getCustomerSession, CustomerSession } from '@/lib/customer-session';
+import { clearCustomerSession, getCustomerSession, CustomerSession, setCustomerSession } from '@/lib/customer-session';
 import { Order, OrderStatus } from '@/types';
 import { Transaction } from '@/components/TransactionCard';
 
@@ -36,23 +36,39 @@ type TransactionRow = {
   time_label: string;
 };
 
+function profileFromSession(session: CustomerSession | null): CustomerProfile | null {
+  if (!session) {
+    return null;
+  }
+
+  return {
+    ...session,
+    lifetime_earned: 0,
+    total_redeemed: 0,
+  };
+}
+
 export function useCustomerData() {
-  const [session, setSession] = useState<CustomerSession | null>(null);
-  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [session, setSession] = useState<CustomerSession | null>(() => getCustomerSession());
+  const [profile, setProfile] = useState<CustomerProfile | null>(() => profileFromSession(getCustomerSession()));
   const [orders, setOrders] = useState<Order[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasRestoredSession, setHasRestoredSession] = useState(false);
+  const [hasRestoredSession, setHasRestoredSession] = useState(() => typeof window !== 'undefined');
   const [error, setError] = useState('');
+
+  const resetCustomerData = useCallback(() => {
+    setSession(null);
+    setProfile(null);
+    setOrders([]);
+    setTransactions([]);
+  }, []);
 
   const loadCustomerData = useCallback(async (showLoading = true) => {
     const currentSession = getCustomerSession();
 
     if (!currentSession) {
-      setSession(null);
-      setProfile(null);
-      setOrders([]);
-      setTransactions([]);
+      resetCustomerData();
       setIsLoading(false);
       return;
     }
@@ -78,7 +94,19 @@ export function useCustomerData() {
     }
 
     const profileRow = Array.isArray(profileResult.data) ? profileResult.data[0] : profileResult.data;
+
+    if (!profileRow) {
+      clearCustomerSession();
+      resetCustomerData();
+      setError('Your Suki account is no longer active. Please log in again.');
+      setIsLoading(false);
+      window.dispatchEvent(new CustomEvent('southstyle:customer-session-expired'));
+      return;
+    }
+
     setProfile(profileRow as CustomerProfile);
+    setSession(profileRow as CustomerSession);
+    setCustomerSession(profileRow as CustomerSession);
 
     setOrders(
       ((ordersResult.data || []) as OrderRow[]).map((order) => ({
@@ -110,11 +138,13 @@ export function useCustomerData() {
     );
 
     setIsLoading(false);
-  }, []);
+  }, [resetCustomerData]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setSession(getCustomerSession());
+      const restoredSession = getCustomerSession();
+      setSession(restoredSession);
+      setProfile((currentProfile) => currentProfile ?? profileFromSession(restoredSession));
       setHasRestoredSession(true);
     }, 0);
 
@@ -152,7 +182,7 @@ export function useCustomerData() {
     profile,
     orders,
     transactions,
-    isLoading: !hasRestoredSession || isLoading,
+    isLoading: !profile && (!hasRestoredSession || isLoading),
     error,
     refresh: () => loadCustomerData(false),
   };
