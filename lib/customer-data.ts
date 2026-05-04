@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import { clearCustomerSession, getCustomerSession, CustomerSession, setCustomerSession } from '@/lib/customer-session';
 import { Order, OrderStatus } from '@/types';
 import { Transaction } from '@/components/TransactionCard';
+import { defaultOrderCategory, type OrderCategory } from '@/lib/order-categories';
 
 export type CustomerProfile = CustomerSession & {
   lifetime_earned: number;
@@ -15,6 +16,7 @@ type OrderRow = {
   id: string;
   order_number: string;
   date_label: string;
+  order_category: OrderCategory | null;
   order_status: OrderStatus;
   payment_status: 'unpaid' | 'partial' | 'paid' | 'voided';
   subtotal_amount: number;
@@ -113,6 +115,7 @@ export function useCustomerData() {
         id: order.id,
         orderNumber: order.order_number,
         date: order.date_label,
+        category: order.order_category ?? defaultOrderCategory,
         status: order.order_status,
         paymentStatus: order.payment_status,
         subtotalAmount: Number(order.subtotal_amount),

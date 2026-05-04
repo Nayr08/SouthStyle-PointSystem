@@ -7,9 +7,10 @@ import { PointsDisplay } from '@/components/PointsDisplay';
 import { HomeSkeleton } from '@/components/Skeletons';
 import { useCustomerData } from '@/lib/customer-data';
 import { formatCompactStatValue } from '@/lib/number-format';
+import { getOrderTrackingSteps } from '@/lib/order-categories';
 import { supabase } from '@/lib/supabase/client';
 import { tierMinimum, tierNames, type TierName } from '@/lib/tiers';
-import { Order, OrderStatus } from '@/types';
+import { Order } from '@/types';
 import { ArrowRight, CheckCircle2, ChevronRight, Circle, Clock3, PackageCheck, Paintbrush, Printer, Scissors, ShoppingBag, Star, X, Zap } from 'lucide-react';
 
 const tierTheme: Record<TierName, { card: string; bar: string; text: string }> = {
@@ -92,19 +93,16 @@ const tierCardTheme: Record<TierName, { shell: string; border: string; accent: s
 
 const tierOrder: TierName[] = [...tierNames];
 
-const trackingSteps = [
-  { key: 'designing', title: 'Designing', description: 'Layout and print file preparation.', icon: Paintbrush },
-  { key: 'printing', title: 'Printing', description: 'Your order is being produced.', icon: Printer },
-  { key: 'cutting', title: 'Cutting', description: 'Materials are measured and prepared.', icon: Scissors },
-  { key: 'ready', title: 'Ready to pick up', description: 'Order is ready at the shop.', icon: PackageCheck },
-  { key: 'claimed', title: 'Claimed', description: 'Order has been received.', icon: CheckCircle2 },
-];
-
-const statusStepIndex: Record<OrderStatus, number> = {
-  pending: 0,
-  in_progress: 1,
-  ready: 3,
-  claimed: 4,
+const stepIcon: Record<string, typeof Paintbrush> = {
+  designing: Paintbrush,
+  printing: Printer,
+  cutting: Scissors,
+  sewing: Scissors,
+  checking: CheckCircle2,
+  fabricating: Scissors,
+  ready: PackageCheck,
+  claimed: CheckCircle2,
+  installed: CheckCircle2,
 };
 
 type TrackingRow = {
@@ -132,8 +130,24 @@ function formatClaimedDateTime(value: string | null | undefined) {
   }).format(date);
 }
 
+function getFallbackStepStatus(order: Order, stepKey: string, index: number, stepsLength: number) {
+  if (order.status === 'claimed' || order.status === 'installed') {
+    return 'done';
+  }
+
+  if (order.status === 'ready') {
+    const readyIndex = getOrderTrackingSteps(order.category).findIndex((step) => step.key === 'ready');
+    return index < readyIndex ? 'done' : stepKey === 'ready' ? 'current' : 'pending';
+  }
+
+  if (order.status === 'in_progress') {
+    return index === 0 ? 'done' : index === Math.min(1, stepsLength - 1) ? 'current' : 'pending';
+  }
+
+  return index === 0 ? 'current' : 'pending';
+}
+
 function OrderTrackingModal({ customerId, order, onClose }: { customerId: string; order: Order; onClose: () => void }) {
-  const activeIndex = statusStepIndex[order.status];
   const [steps, setSteps] = useState<TrackingRow[]>([]);
 
   useEffect(() => {
@@ -149,18 +163,20 @@ function OrderTrackingModal({ customerId, order, onClose }: { customerId: string
     loadTracking();
   }, [customerId, order.id]);
 
+  const categorySteps = getOrderTrackingSteps(order.category);
   const displaySteps = steps.length > 0
     ? steps.map((step) => ({
         key: step.step_key,
         title: step.step_name,
-        description: trackingSteps.find((item) => item.key === step.step_key)?.description || 'Production step update.',
-        icon: trackingSteps.find((item) => item.key === step.step_key)?.icon || Clock3,
+        description: categorySteps.find((item) => item.key === step.step_key)?.description || 'Production step update.',
+        icon: stepIcon[step.step_key] || Clock3,
         status: step.status,
         updatedAt: step.updated_at,
       }))
-    : trackingSteps.map((step, index) => ({
+    : categorySteps.map((step, index) => ({
         ...step,
-        status: index < activeIndex || order.status === 'claimed' ? 'done' : index === activeIndex ? 'current' : 'pending',
+        icon: stepIcon[step.key] || Clock3,
+        status: getFallbackStepStatus(order, step.key, index, categorySteps.length),
         updatedAt: '',
       }));
 
@@ -226,7 +242,7 @@ function OrderTrackingModal({ customerId, order, onClose }: { customerId: string
 
               return (
                 <div key={step.key} className="relative flex gap-4 pb-7 last:pb-0">
-                  {index < trackingSteps.length - 1 && (
+                  {index < displaySteps.length - 1 && (
                     <>
                       <div className="absolute left-[22px] top-12 h-full w-1 rounded-full bg-slate-200" />
                       {isDone && <div className="absolute left-[22px] top-12 h-full w-1 rounded-full bg-emerald-500" />}
@@ -242,9 +258,9 @@ function OrderTrackingModal({ customerId, order, onClose }: { customerId: string
                       {isDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700">Done</span>}
                     </div>
                     <p className={`mt-1 text-xs font-semibold leading-5 ${isActive ? 'text-slate-500' : 'text-slate-400'}`}>{step.description}</p>
-                    {step.key === 'claimed' && isDone && formatClaimedDateTime(step.updatedAt) && (
+                    {(step.key === 'claimed' || step.key === 'installed') && isDone && formatClaimedDateTime(step.updatedAt) && (
                       <p className="mt-1 text-xs font-bold text-slate-500">
-                        Claimed on {formatClaimedDateTime(step.updatedAt)}
+                        {step.key === 'installed' ? 'Installed' : 'Claimed'} on {formatClaimedDateTime(step.updatedAt)}
                       </p>
                     )}
                   </div>

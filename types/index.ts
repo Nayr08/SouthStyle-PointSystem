@@ -1,10 +1,13 @@
-export type OrderStatus = 'pending' | 'in_progress' | 'ready' | 'claimed';
+import { type OrderCategory } from '@/lib/order-categories';
+
+export type OrderStatus = 'pending' | 'in_progress' | 'ready' | 'claimed' | 'installed';
 export type OrderPaymentStatus = 'unpaid' | 'partial' | 'paid' | 'voided';
 
 export interface Order {
   id: string;
   orderNumber: string;
   date: string;
+  category: OrderCategory;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
   subtotalAmount: number;

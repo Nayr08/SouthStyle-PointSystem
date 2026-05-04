@@ -167,7 +167,7 @@ textarea {
 }
 
 .animate-page {
-  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .animate-hero {

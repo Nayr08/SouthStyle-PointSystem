@@ -1,10 +1,12 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BadgePlus, CheckCircle2, PhilippinePeso, Search, TicketPercent, UserRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
 import { formatCompactStatValue } from '@/lib/number-format';
+import { defaultOrderCategory, orderCategories, type OrderCategory } from '@/lib/order-categories';
 import { type TierName } from '@/lib/tiers';
 import { supabase } from '@/lib/supabase/client';
 
@@ -54,6 +56,32 @@ type CouponCheckResult = {
   message: string;
 };
 
+type PaymentMode = 'none' | 'full' | 'custom';
+
+const paymentModeOptions: Array<{ value: PaymentMode; label: string; optionClassName: string }> = [
+  { value: 'none', label: 'Unpaid', optionClassName: 'text-slate-900' },
+  { value: 'full', label: 'Paid', optionClassName: 'text-slate-900' },
+  { value: 'custom', label: 'Downpayment', optionClassName: 'text-slate-900' },
+];
+
+const paymentModeTone: Record<PaymentMode, { shell: string; icon: string; input: string }> = {
+  none: {
+    shell: 'border-rose-200 bg-rose-50/60 focus-within:border-rose-300',
+    icon: 'text-rose-600',
+    input: 'text-rose-700',
+  },
+  full: {
+    shell: 'border-emerald-200 bg-emerald-50/60 focus-within:border-emerald-300',
+    icon: 'text-emerald-700',
+    input: 'text-emerald-700',
+  },
+  custom: {
+    shell: 'border-[#181d18]/14 bg-white focus-within:border-[#181d18]/20',
+    icon: 'text-ss-green',
+    input: 'text-slate-900',
+  },
+};
+
 const tierBadgeStyles: Record<TierName, string> = {
   Bronze: 'border-[#f0b071]/40 bg-[#8a4f24]/15 text-[#8a4f24]',
   Silver: 'border-slate-200 bg-slate-100 text-slate-700',
@@ -64,6 +92,7 @@ const tierBadgeStyles: Record<TierName, string> = {
 };
 
 export default function AddPointsPage() {
+  const router = useRouter();
   const { staff } = useStaffSession();
   const [lookup, setLookup] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState('');
@@ -71,6 +100,8 @@ export default function AddPointsPage() {
   const [couponCode, setCouponCode] = useState('');
   const [pointsToUse, setPointsToUse] = useState('');
   const [notes, setNotes] = useState('');
+  const [orderCategory, setOrderCategory] = useState<OrderCategory>(defaultOrderCategory);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('none');
   const [customer, setCustomer] = useState<CustomerLookupResult | null>(null);
   const [result, setResult] = useState<AddPointsResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,11 +113,32 @@ export default function AddPointsPage() {
   const orderTotal = Number(purchaseAmount || 0);
   const downpayment = Number(downpaymentAmount || 0);
   const isOrderTotalValid = Number.isFinite(orderTotal) && orderTotal > 0;
-  const isDownpaymentValid = Number.isFinite(downpayment) && downpayment >= 0;
+  const isDownpaymentValid = paymentMode !== 'custom' || (Number.isFinite(downpayment) && downpayment >= 0);
   const couponLooksEntered = couponCode.trim().length > 0;
   const normalizedCouponCode = couponCode.trim();
   const pointsRequested = Number(pointsToUse || 0);
   const activeCouponCheck = couponLooksEntered ? couponCheck : null;
+
+  const draftTotals = useMemo(() => {
+    const couponDiscount = activeCouponCheck?.is_valid
+      ? Number(activeCouponCheck.coupon_discount || 0)
+      : 0;
+    const maxPointsUsable = Math.max(orderTotal - couponDiscount, 0);
+    const pointsUsed = Math.max(Math.min(pointsRequested || 0, customer?.points_balance ?? 0, maxPointsUsable), 0);
+    const amountDue = Math.max(orderTotal - couponDiscount - pointsUsed, 0);
+
+    return {
+      couponDiscount,
+      pointsUsed,
+      amountDue,
+    };
+  }, [
+    activeCouponCheck?.coupon_discount,
+    activeCouponCheck?.is_valid,
+    customer?.points_balance,
+    orderTotal,
+    pointsRequested,
+  ]);
 
   const summary = useMemo(() => {
     if (result) {
@@ -101,37 +153,38 @@ export default function AddPointsPage() {
       };
     }
 
-    const couponDiscount = activeCouponCheck?.is_valid
-      ? Number(activeCouponCheck.coupon_discount || 0)
-      : 0;
-    const maxPointsUsable = Math.max(orderTotal - couponDiscount, 0);
-    const pointsUsed = Math.max(Math.min(pointsRequested || 0, customer?.points_balance ?? 0, maxPointsUsable), 0);
-    const amountDue = Math.max(orderTotal - couponDiscount - pointsUsed, 0);
-    const paymentToApply = Math.max(Math.min(downpayment || 0, amountDue), 0);
+    const paymentToApply = Math.max(Math.min(downpayment || 0, draftTotals.amountDue), 0);
+    const requestedPayment =
+      paymentMode === 'full'
+        ? draftTotals.amountDue
+        : paymentMode === 'none'
+          ? 0
+          : paymentToApply;
 
     return {
       orderTotal,
-      requestedPayment: paymentToApply,
-      amountDue,
-      remainingBalance: Math.max(amountDue - paymentToApply, 0),
-      couponDiscount,
-      pointsUsed,
+      requestedPayment,
+      amountDue: draftTotals.amountDue,
+      remainingBalance: Math.max(draftTotals.amountDue - requestedPayment, 0),
+      couponDiscount: draftTotals.couponDiscount,
+      pointsUsed: draftTotals.pointsUsed,
       pointsEarned:
-        amountDue > 0 && Math.max(amountDue - paymentToApply, 0) === 0
-          ? Number((paymentToApply / 100).toFixed(2))
+        draftTotals.amountDue > 0 && Math.max(draftTotals.amountDue - requestedPayment, 0) === 0
+          ? Number((requestedPayment / 100).toFixed(2))
           : 0,
     };
   }, [
-    activeCouponCheck?.coupon_discount,
-    activeCouponCheck?.is_valid,
-    customer?.points_balance,
     downpayment,
+    draftTotals.amountDue,
+    draftTotals.couponDiscount,
+    draftTotals.pointsUsed,
     orderTotal,
-    pointsRequested,
+    paymentMode,
     result,
   ]);
 
   const customerTier = customer?.tier && customer.tier in tierBadgeStyles ? customer.tier : null;
+  const currentPaymentTone = paymentModeTone[paymentMode];
 
   const resetForm = () => {
     setLookup('');
@@ -140,6 +193,8 @@ export default function AddPointsPage() {
     setCouponCode('');
     setPointsToUse('');
     setNotes('');
+    setOrderCategory(defaultOrderCategory);
+    setPaymentMode('none');
     setCustomer(null);
     setResult(null);
     setCouponCheck(null);
@@ -222,7 +277,7 @@ export default function AddPointsPage() {
     || !notes.trim()
     || !isOrderTotalValid
     || !isDownpaymentValid
-    || downpayment > summary.amountDue
+    || (paymentMode === 'custom' && downpayment > summary.amountDue)
     || isCheckingCoupon
     || (couponLooksEntered && !activeCouponCheck?.is_valid);
 
@@ -309,7 +364,7 @@ export default function AddPointsPage() {
       return;
     }
 
-    if (downpayment > summary.amountDue) {
+    if (paymentMode === 'custom' && downpayment > summary.amountDue) {
       toast.error('Downpayment cannot be greater than amount due.');
       return;
     }
@@ -337,6 +392,7 @@ export default function AddPointsPage() {
       p_points_to_use: pointsToUseForSubmit,
       p_notes: notes.trim() || null,
       p_paid_amount: summary.requestedPayment,
+      p_order_category: orderCategory,
     });
 
     setIsSaving(false);
@@ -355,6 +411,7 @@ export default function AddPointsPage() {
     );
 
     toast.success(`Order added successfully for ${nextResult.full_name}`);
+    router.replace('/admin');
   };
 
   return (
@@ -455,18 +512,48 @@ export default function AddPointsPage() {
                 </AdminInput>
               </FieldShell>
 
-              <FieldShell label="Downpayment Now">
-                <AdminInput>
-                  <PhilippinePeso size={18} className="text-ss-green" />
-                  <input
-                    value={downpaymentAmount}
-                    onChange={(event) => setDownpaymentAmount(event.target.value)}
-                    inputMode="decimal"
-                    placeholder="0.00 if none"
-                    className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
-                  />
-                </AdminInput>
-              </FieldShell>
+              <div>
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Payment
+                </span>
+                <span
+                  className={`flex items-center rounded-2xl border px-4 py-4 transition-colors ${currentPaymentTone.shell}`}
+                >
+                  <select
+                    aria-label="Payment status"
+                    value={paymentMode}
+                    onChange={(event) => {
+                      const nextMode = event.target.value as PaymentMode;
+                      setPaymentMode(nextMode);
+                      if (nextMode === 'none') {
+                        setDownpaymentAmount('0.00');
+                      }
+                      if (nextMode === 'custom' && paymentMode !== 'custom') {
+                        setDownpaymentAmount('');
+                      }
+                    }}
+                    className={`min-w-0 flex-1 bg-transparent text-sm font-black outline-none ${currentPaymentTone.input}`}
+                  >
+                    {paymentModeOptions.map((option) => (
+                      <option key={option.value} value={option.value} className={option.optionClassName}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+                {paymentMode === 'custom' && (
+                  <span className="mt-3 flex items-center gap-3 rounded-2xl border border-[#181d18]/14 bg-white px-4 py-4 transition-colors focus-within:border-[#181d18]/20">
+                    <PhilippinePeso size={18} className="text-ss-green" />
+                    <input
+                      value={downpaymentAmount}
+                      onChange={(event) => setDownpaymentAmount(event.target.value)}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
+                    />
+                  </span>
+                )}
+              </div>
 
               <FieldShell label="Coupon Claim Code">
                 <AdminInput>
@@ -510,6 +597,23 @@ export default function AddPointsPage() {
                     className="min-w-0 flex-1 bg-transparent text-sm font-black text-slate-900 outline-none placeholder:text-slate-400"
                   />
                 </AdminInput>
+              </FieldShell>
+
+              <FieldShell label="Order Category">
+                <select
+                  value={orderCategory}
+                  onChange={(event) => setOrderCategory(event.target.value as OrderCategory)}
+                  className="w-full rounded-2xl border border-[#181d18]/14 bg-white px-4 py-4 text-sm font-black text-slate-900 outline-none transition-colors focus:border-[#181d18]/20"
+                >
+                  {orderCategories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                  {orderCategories.find((category) => category.value === orderCategory)?.helper}
+                </p>
               </FieldShell>
             </div>
 

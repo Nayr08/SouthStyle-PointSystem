@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Clock, Package } from 'lucide-react';
 import { Order, OrderStatus } from '@/types';
+import { getOrderCategoryLabel } from '@/lib/order-categories';
 
 const statusConfig: Record<OrderStatus, { label: string; pill: string; icon: React.ElementType; iconBox: string }> = {
   pending: {
@@ -27,6 +28,12 @@ const statusConfig: Record<OrderStatus, { label: string; pill: string; icon: Rea
     pill: 'bg-emerald-100 text-emerald-700',
     icon: CheckCircle2,
     iconBox: 'from-blue-100 to-indigo-100 text-blue-600',
+  },
+  installed: {
+    label: 'Installed',
+    pill: 'bg-sky-100 text-sky-700',
+    icon: CheckCircle2,
+    iconBox: 'from-sky-100 to-cyan-100 text-sky-600',
   },
 };
 
@@ -85,6 +92,9 @@ export function OrderCard({ order, onClick }: { order: Order; onClick?: () => vo
               <p className="mt-1 text-xs font-black uppercase tracking-[0.08em] text-slate-500">Order #{order.orderNumber}</p>
               <p className="mt-1 text-xs font-semibold text-slate-500">{order.date}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase text-ss-green">
+                  {getOrderCategoryLabel(order.category)}
+                </span>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${paymentPill[order.paymentStatus]}`}>
                   {paymentLabel[order.paymentStatus]}
                 </span>

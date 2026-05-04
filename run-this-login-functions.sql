@@ -89,6 +89,17 @@ ADD COLUMN IF NOT EXISTS coupon_discount_amount numeric(12,2) NOT NULL DEFAULT 0
 ALTER TABLE public.orders
 ADD COLUMN IF NOT EXISTS points_discount_amount numeric(12,2) NOT NULL DEFAULT 0;
 
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS order_category text NOT NULL DEFAULT 'tarpaulin_other_services';
+
+ALTER TABLE public.orders
+DROP CONSTRAINT IF EXISTS orders_order_category_check;
+
+ALTER TABLE public.orders
+ADD CONSTRAINT orders_order_category_check CHECK (
+  order_category IN ('sublimation', 'acrylic_signs', 'tarpaulin_other_services')
+);
+
 UPDATE public.orders
 SET paid_amount = total_amount
 WHERE payment_status = 'paid'
@@ -113,17 +124,51 @@ DROP CONSTRAINT IF EXISTS orders_payment_status_check;
 ALTER TABLE public.orders
 ADD CONSTRAINT orders_payment_status_check CHECK (payment_status IN ('unpaid', 'partial', 'paid', 'voided'));
 
+ALTER TABLE public.orders
+DROP CONSTRAINT IF EXISTS orders_order_status_check;
+
+ALTER TABLE public.orders
+ADD CONSTRAINT orders_order_status_check CHECK (order_status IN ('pending', 'in_progress', 'ready', 'claimed', 'installed', 'voided'));
+
+CREATE INDEX IF NOT EXISTS idx_orders_category ON public.orders(order_category);
+
 CREATE OR REPLACE FUNCTION public.ensure_order_tracking(p_order_id uuid)
 RETURNS void AS $$
+DECLARE
+  v_order_category text;
 BEGIN
-  INSERT INTO public.order_tracking_steps (order_id, step_key, step_name, sort_order, status)
-  VALUES
-    (p_order_id, 'designing', 'Designing', 1, 'current'),
-    (p_order_id, 'printing', 'Printing', 2, 'pending'),
-    (p_order_id, 'cutting', 'Cutting', 3, 'pending'),
-    (p_order_id, 'ready', 'Ready to pick up', 4, 'pending'),
-    (p_order_id, 'claimed', 'Claimed', 5, 'pending')
-  ON CONFLICT (order_id, step_key) DO NOTHING;
+  SELECT COALESCE(NULLIF(order_category, ''), 'tarpaulin_other_services')
+  INTO v_order_category
+  FROM public.orders
+  WHERE id = p_order_id;
+
+  IF v_order_category = 'sublimation' THEN
+    INSERT INTO public.order_tracking_steps (order_id, step_key, step_name, sort_order, status)
+    VALUES
+      (p_order_id, 'designing', 'Designing', 1, 'current'),
+      (p_order_id, 'printing', 'Printing', 2, 'pending'),
+      (p_order_id, 'sewing', 'Sewing', 3, 'pending'),
+      (p_order_id, 'checking', 'Checking', 4, 'pending'),
+      (p_order_id, 'ready', 'Ready for pick up', 5, 'pending'),
+      (p_order_id, 'claimed', 'Claimed', 6, 'pending')
+    ON CONFLICT DO NOTHING;
+  ELSIF v_order_category = 'acrylic_signs' THEN
+    INSERT INTO public.order_tracking_steps (order_id, step_key, step_name, sort_order, status)
+    VALUES
+      (p_order_id, 'designing', 'Designing', 1, 'current'),
+      (p_order_id, 'fabricating', 'Fabricating', 2, 'pending'),
+      (p_order_id, 'ready', 'Ready for installation', 3, 'pending'),
+      (p_order_id, 'installed', 'Installed', 4, 'pending')
+    ON CONFLICT DO NOTHING;
+  ELSE
+    INSERT INTO public.order_tracking_steps (order_id, step_key, step_name, sort_order, status)
+    VALUES
+      (p_order_id, 'designing', 'Designing', 1, 'current'),
+      (p_order_id, 'printing', 'Printing', 2, 'pending'),
+      (p_order_id, 'ready', 'Ready for pick up', 3, 'pending'),
+      (p_order_id, 'claimed', 'Claimed', 4, 'pending')
+    ON CONFLICT DO NOTHING;
+  END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
@@ -530,6 +575,8 @@ GRANT EXECUTE ON FUNCTION public.admin_check_coupon_code(text, numeric) TO anon,
 
 -- Add points from a paid purchase. PHP 100 = 1 point.
 DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text);
+DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric);
+DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric, text);
 
 CREATE OR REPLACE FUNCTION public.admin_add_purchase_points(
   p_staff_id uuid,
@@ -538,7 +585,8 @@ CREATE OR REPLACE FUNCTION public.admin_add_purchase_points(
   p_coupon_code text DEFAULT NULL,
   p_points_to_use numeric DEFAULT 0,
   p_notes text DEFAULT NULL,
-  p_paid_amount numeric DEFAULT NULL
+  p_paid_amount numeric DEFAULT NULL,
+  p_order_category text DEFAULT 'tarpaulin_other_services'
 )
 RETURNS TABLE (
   customer_id uuid,
@@ -575,9 +623,14 @@ DECLARE
   v_payment_status text := 'unpaid';
   v_coupon_discount numeric(10,2) := 0;
   v_points_to_use numeric(12,2) := COALESCE(p_points_to_use, 0);
+  v_order_category text := COALESCE(NULLIF(trim(p_order_category), ''), 'tarpaulin_other_services');
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.staff WHERE id = p_staff_id AND is_active = true) THEN
     RAISE EXCEPTION 'Only active staff can add points.';
+  END IF;
+
+  IF v_order_category NOT IN ('sublimation', 'acrylic_signs', 'tarpaulin_other_services') THEN
+    RAISE EXCEPTION 'Invalid order category.';
   END IF;
 
   IF p_purchase_amount <= 0 THEN
@@ -674,6 +727,7 @@ BEGIN
     points_earned,
     payment_status,
     order_status,
+    order_category,
     notes,
     created_by
   )
@@ -687,6 +741,7 @@ BEGIN
     v_points_added,
     v_payment_status,
     'pending',
+    v_order_category,
     p_notes,
     p_staff_id
   )
@@ -757,7 +812,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
-GRANT EXECUTE ON FUNCTION public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric, text) TO anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.admin_add_order_payment(
   p_staff_id uuid,
@@ -1681,6 +1736,7 @@ RETURNS TABLE (
   id uuid,
   order_number text,
   date_label text,
+  order_category text,
   order_status text,
   payment_status text,
   subtotal_amount numeric,
@@ -1698,6 +1754,7 @@ BEGIN
     o.id,
     substring(o.id::text, 1, 8) AS order_number,
     to_char(timezone('Asia/Manila', o.created_at), 'Mon DD, HH12:MI AM') AS date_label,
+    COALESCE(o.order_category, 'tarpaulin_other_services') AS order_category,
     o.order_status,
     o.payment_status,
     COALESCE(o.subtotal_amount, o.total_amount) AS subtotal_amount,
@@ -1828,6 +1885,7 @@ RETURNS TABLE (
   customer_name text,
   customer_phone text,
   date_label text,
+  order_category text,
   order_status text,
   payment_status text,
   subtotal_amount numeric,
@@ -1848,6 +1906,7 @@ BEGIN
     c.full_name AS customer_name,
     c.phone AS customer_phone,
     to_char(timezone('Asia/Manila', o.created_at), 'Mon DD, HH12:MI AM') AS date_label,
+    COALESCE(o.order_category, 'tarpaulin_other_services') AS order_category,
     o.order_status,
     o.payment_status,
     COALESCE(o.subtotal_amount, o.total_amount) AS subtotal_amount,
@@ -1930,7 +1989,7 @@ BEGIN
     RAISE EXCEPTION 'Tracking step not found.';
   END IF;
 
-  IF p_status = 'done' AND v_step_key = 'claimed' THEN
+  IF p_status = 'done' AND v_step_key IN ('claimed', 'installed') THEN
     SELECT payment_status
     INTO v_order_payment_status
     FROM public.orders
@@ -2018,7 +2077,11 @@ BEGIN
       SELECT 1 FROM public.order_tracking_steps
       WHERE order_id = v_order_id AND step_key = 'claimed' AND status = 'done'
     ) THEN 'claimed'
-    WHEN v_active_key IN ('ready', 'claimed') THEN 'ready'
+    WHEN v_active_key = 'installed' AND EXISTS (
+      SELECT 1 FROM public.order_tracking_steps
+      WHERE order_id = v_order_id AND step_key = 'installed' AND status = 'done'
+    ) THEN 'installed'
+    WHEN v_active_key IN ('ready', 'claimed', 'installed') THEN 'ready'
     WHEN COALESCE(v_max_active_sort, 1) >= 2 THEN 'in_progress'
     ELSE 'pending'
   END

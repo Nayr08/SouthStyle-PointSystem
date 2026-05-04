@@ -161,7 +161,7 @@ export default function AdminDashboardPage() {
         setActiveOrdersCount(null);
       } else {
         const activeOrders = ((ordersResult.data || []) as AdminOrderRow[]).filter(
-          (order) => order.order_status !== 'claimed',
+          (order) => !['claimed', 'installed'].includes(order.order_status),
         );
 
         setActiveOrdersCount(activeOrders.length);

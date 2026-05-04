@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AdminShell, useStaffSession } from '@/components/AdminShell';
+import { getOrderCategoryLabel } from '@/lib/order-categories';
 import { supabase } from '@/lib/supabase/client';
 import { CheckCircle2, Clock3, PackageCheck, Paintbrush, PhilippinePeso, Printer, Scissors, Search, Trash2, X } from 'lucide-react';
 
@@ -12,6 +13,7 @@ type AdminOrder = {
   customer_name: string;
   customer_phone: string;
   date_label: string;
+  order_category: string | null;
   order_status: string;
   payment_status: 'unpaid' | 'partial' | 'paid' | 'voided';
   subtotal_amount: number;
@@ -52,16 +54,12 @@ const stepIcons: Record<string, typeof Paintbrush> = {
   designing: Paintbrush,
   printing: Printer,
   cutting: Scissors,
+  sewing: Scissors,
+  checking: CheckCircle2,
+  fabricating: Scissors,
   ready: PackageCheck,
   claimed: CheckCircle2,
-};
-
-const trackingOrder: Record<string, number> = {
-  designing: 1,
-  printing: 2,
-  cutting: 3,
-  ready: 4,
-  claimed: 5,
+  installed: CheckCircle2,
 };
 
 const statusLabel: Record<string, string> = {
@@ -69,6 +67,7 @@ const statusLabel: Record<string, string> = {
   in_progress: 'In Progress',
   ready: 'Ready',
   claimed: 'Claimed',
+  installed: 'Installed',
 };
 
 const paymentStatusLabel: Record<string, string> = {
@@ -81,7 +80,7 @@ const paymentStatusLabel: Record<string, string> = {
 const filterMeta: Record<OrderFilter, { label: string; helper: string }> = {
   active: { label: 'Active', helper: 'Pending and in progress' },
   ready: { label: 'Ready', helper: 'Ready for pickup' },
-  claimed: { label: 'Claimed', helper: 'Completed pickups' },
+  claimed: { label: 'Completed', helper: 'Claimed and installed' },
   all: { label: 'All', helper: 'Everything together' },
 };
 
@@ -89,8 +88,12 @@ const trackingStepHelper: Record<string, string> = {
   designing: 'Prepare the design and confirm the layout is ready for production.',
   printing: 'Send the order to print and monitor progress on the machine.',
   cutting: 'Trim and finish the printed output for handoff.',
+  sewing: 'Sew and assemble the printed material.',
+  checking: 'Inspect the order and confirm quality before release.',
+  fabricating: 'Fabricate the acrylic sign and prepare it for installation.',
   ready: 'Mark the order as ready once it can be picked up by the customer.',
   claimed: 'Finalize the order after the customer has received it.',
+  installed: 'Finalize the order after the installation is completed.',
 };
 
 function formatTrackingTimestamp(value: string | null | undefined) {
@@ -112,6 +115,7 @@ function formatTrackingTimestamp(value: string | null | undefined) {
 
 export default function AdminOrdersPage() {
   const { staff } = useStaffSession();
+  const modalScrollRef = useRef<HTMLDivElement | null>(null);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [tracking, setTracking] = useState<TrackingStep[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
@@ -125,6 +129,28 @@ export default function AdminOrdersPage() {
   const [paymentAmount, setPaymentAmount] = useState('0.00');
   const [showDeleteOrderConfirm, setShowDeleteOrderConfirm] = useState(false);
   const [deleteOrderRfid, setDeleteOrderRfid] = useState('');
+  const selectedOrderId = selectedOrder?.id;
+
+  useEffect(() => {
+    if (!selectedOrderId) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    modalScrollRef.current?.scrollTo({ top: 0 });
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [selectedOrderId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -181,9 +207,7 @@ export default function AdminOrdersPage() {
     }
 
     setTracking(
-      ((data || []) as TrackingStep[]).sort(
-        (a, b) => (trackingOrder[a.step_key] ?? a.sort_order) - (trackingOrder[b.step_key] ?? b.sort_order),
-      ),
+      ((data || []) as TrackingStep[]).sort((a, b) => a.sort_order - b.sort_order),
     );
   };
 
@@ -294,13 +318,13 @@ export default function AdminOrdersPage() {
   };
 
   const filteredOrders = orders.filter((order) => {
-    const haystack = `${order.customer_name} ${order.customer_phone} ${order.order_number} ${order.items}`.toLowerCase();
+    const haystack = `${order.customer_name} ${order.customer_phone} ${order.order_number} ${getOrderCategoryLabel(order.order_category)} ${order.items}`.toLowerCase();
     const matchesQuery = haystack.includes(query.toLowerCase());
     const matchesFilter =
       orderFilter === 'all'
       || (orderFilter === 'active' && ['pending', 'in_progress'].includes(order.order_status))
       || (orderFilter === 'ready' && order.order_status === 'ready')
-      || (orderFilter === 'claimed' && order.order_status === 'claimed');
+      || (orderFilter === 'claimed' && ['claimed', 'installed'].includes(order.order_status));
 
     return matchesQuery && matchesFilter;
   });
@@ -308,7 +332,7 @@ export default function AdminOrdersPage() {
   const counts = {
     active: orders.filter((order) => ['pending', 'in_progress'].includes(order.order_status)).length,
     ready: orders.filter((order) => order.order_status === 'ready').length,
-    claimed: orders.filter((order) => order.order_status === 'claimed').length,
+    claimed: orders.filter((order) => ['claimed', 'installed'].includes(order.order_status)).length,
     all: orders.length,
   };
 
@@ -362,7 +386,7 @@ export default function AdminOrdersPage() {
 
       {error && <p className="notice-pop mb-4 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">{error}</p>}
 
-      <section className="grid gap-3">
+      <section className="grid max-h-[34rem] gap-3 overflow-y-auto pr-1">
         {isLoading && <p className="rounded-2xl bg-white p-5 text-sm font-bold text-slate-500">Loading orders...</p>}
         {!isLoading && filteredOrders.map((order) => (
           <button
@@ -376,6 +400,7 @@ export default function AdminOrdersPage() {
                 <p className="truncate text-base font-black text-slate-900">{order.items.split(' - ')[0]}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">{order.customer_name} - {order.customer_phone}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-400">Order #{order.order_number} - {order.date_label}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-ss-green">{getOrderCategoryLabel(order.order_category)}</p>
               </div>
               <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-ss-green">
                 {statusLabel[order.order_status] || order.order_status}
@@ -409,13 +434,14 @@ export default function AdminOrdersPage() {
       </section>
 
       {selectedOrder && (
-        <div className="fixed inset-0 z-[90] grid place-items-end bg-black/45 px-5 pb-5 pt-8 backdrop-blur-sm sm:place-items-center">
-          <div className="modal-sheet max-h-full w-full max-w-[460px] overflow-hidden rounded-[30px] bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
+        <div className="fixed inset-0 z-[90] grid place-items-center overflow-hidden bg-black/45 px-5 py-5 backdrop-blur-sm">
+          <div className="modal-sheet flex max-h-[calc(100svh-2.5rem)] w-full max-w-[460px] flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl">
+            <div className="shrink-0 flex items-start justify-between gap-4 border-b border-slate-100 p-5">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-ss-green">Edit Tracking</p>
                 <h2 className="mt-1 truncate text-xl font-black text-slate-900">{selectedOrder.items.split(' - ')[0]}</h2>
                 <p className="mt-1 text-xs font-semibold text-slate-500">{selectedOrder.customer_name} - Order #{selectedOrder.order_number}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-ss-green">{getOrderCategoryLabel(selectedOrder.order_category)}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">Last update {formatTrackingTimestamp(lastUpdatedAt)}</p>
               </div>
               <button
@@ -432,7 +458,7 @@ export default function AdminOrdersPage() {
               </button>
             </div>
 
-            <div className="max-h-[74svh] overflow-y-auto p-5">
+            <div ref={modalScrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
               <div className="mb-5 rounded-2xl bg-emerald-50 p-4">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div>
@@ -519,8 +545,8 @@ export default function AdminOrdersPage() {
                   const isDone = effectiveStatus === 'done';
                   const isActive = isDone || isCurrent;
                   const isPending = effectiveStatus === 'pending';
-                  const isClaimedStep = step.step_key === 'claimed';
-                  const canMarkDone = !(isClaimedStep && selectedOrder?.payment_status !== 'paid');
+                  const isFinalCompletionStep = step.step_key === 'claimed' || step.step_key === 'installed';
+                  const canMarkDone = !(isFinalCompletionStep && selectedOrder?.payment_status !== 'paid');
                   const stepIndex = tracking.findIndex((item) => item.id === step.id);
                   const hasNextStep = stepIndex < tracking.length - 1;
                   const previousStep = stepIndex > 0 ? tracking[stepIndex - 1] : null;
@@ -599,7 +625,7 @@ export default function AdminOrdersPage() {
                         )}
                         {isCurrent && !canMarkDone && (
                           <p className="mt-2 text-xs font-bold text-amber-700">
-                            This order must be fully paid before marking Claimed as done.
+                            This order must be fully paid before marking the final step as done.
                           </p>
                         )}
                         {isSaving && isCurrent && (

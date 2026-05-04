@@ -171,6 +171,7 @@ create table public.orders (
   points_earned numeric(12, 2) not null default 0,
   payment_status text not null default 'unpaid'::text,
   order_status text not null default 'pending'::text,
+  order_category text not null default 'tarpaulin_other_services'::text,
   notes text null,
   created_by uuid null,
   voided_by uuid null,
@@ -190,6 +191,7 @@ create table public.orders (
           'in_progress'::text,
           'ready'::text,
           'claimed'::text,
+          'installed'::text,
           'voided'::text
         ]
       )
@@ -200,7 +202,18 @@ create table public.orders (
   constraint orders_payment_status_check check (
     (
       payment_status = any (
-        array['unpaid'::text, 'paid'::text, 'voided'::text]
+        array['unpaid'::text, 'partial'::text, 'paid'::text, 'voided'::text]
+      )
+    )
+  ),
+  constraint orders_order_category_check check (
+    (
+      order_category = any (
+        array[
+          'sublimation'::text,
+          'acrylic_signs'::text,
+          'tarpaulin_other_services'::text
+        ]
       )
     )
   )
@@ -209,6 +222,8 @@ create table public.orders (
 create index IF not exists idx_orders_customer_id on public.orders using btree (customer_id) TABLESPACE pg_default;
 
 create index IF not exists idx_orders_status on public.orders using btree (order_status) TABLESPACE pg_default;
+
+create index IF not exists idx_orders_category on public.orders using btree (order_category) TABLESPACE pg_default;
 
 create trigger orders_updated_at BEFORE
 update on orders for EACH row

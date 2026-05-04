@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronRight, IdCard, Phone, ScanLine, Search, ShoppingBag, Sparkles, UserRound, UsersRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
@@ -51,6 +52,7 @@ const tierBadgeStyles: Record<TierName, string> = {
 };
 
 export default function RegisterSukiPage() {
+  const router = useRouter();
   const { hasHydrated, staff } = useStaffSession();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -196,10 +198,9 @@ export default function RegisterSukiPage() {
     }
 
     const result = Array.isArray(data) ? data[0] : data;
-    setActiveTab('members');
     resetForm();
     toast.success(`Suki member registration completed for ${(result as RegisteredCustomer).full_name}`);
-    await loadMembers();
+    router.replace('/admin');
   };
 
   if (!hasHydrated || !staff) {
