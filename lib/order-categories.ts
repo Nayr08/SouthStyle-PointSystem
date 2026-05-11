@@ -36,6 +36,12 @@ export const orderCategoryLabel: Record<OrderCategory, string> = {
   tarpaulin_other_services: 'Tarpaulin & Other Services',
 };
 
+export const orderCategoryPointsRate: Record<OrderCategory, number> = {
+  sublimation: 300,
+  acrylic_signs: 300,
+  tarpaulin_other_services: 200,
+};
+
 export const orderTrackingSteps: Record<OrderCategory, OrderStepDefinition[]> = {
   sublimation: [
     { key: 'designing', title: 'Designing', description: 'Layout and print file preparation.' },
@@ -61,6 +67,10 @@ export const orderTrackingSteps: Record<OrderCategory, OrderStepDefinition[]> = 
 
 export function getOrderCategoryLabel(category: string | null | undefined) {
   return orderCategoryLabel[(category as OrderCategory) || defaultOrderCategory] ?? orderCategoryLabel[defaultOrderCategory];
+}
+
+export function getOrderCategoryPointsRate(category: string | null | undefined) {
+  return orderCategoryPointsRate[(category as OrderCategory) || defaultOrderCategory] ?? orderCategoryPointsRate[defaultOrderCategory];
 }
 
 export function getOrderTrackingSteps(category: string | null | undefined) {

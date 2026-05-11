@@ -1,22 +1,28 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
+import packageJson from '@/package.json';
 
 export const dynamic = 'force-dynamic';
 
 async function getAppVersion() {
+  const appVersion = packageJson.version;
+
   if (process.env.NODE_ENV !== 'production') {
-    return 'development';
+    return `${appVersion}+development`;
   }
 
   try {
     const buildIdPath = path.join(process.cwd(), '.next', 'BUILD_ID');
-    return (await readFile(buildIdPath, 'utf8')).trim();
+    const buildId = (await readFile(buildIdPath, 'utf8')).trim();
+    return `${appVersion}+${buildId}`;
   } catch {
-    return process.env.VERCEL_GIT_COMMIT_SHA
+    const deploymentId = process.env.VERCEL_GIT_COMMIT_SHA
       ?? process.env.RAILWAY_GIT_COMMIT_SHA
       ?? process.env.RENDER_GIT_COMMIT
       ?? 'production';
+
+    return `${appVersion}+${deploymentId}`;
   }
 }
 

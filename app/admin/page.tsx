@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { AdminDashboardSkeleton } from '@/components/Skeletons';
+import { APP_VERSION } from '@/lib/app-version';
 import { supabase } from '@/lib/supabase/client';
 
 const STAFF_SESSION_KEY = 'southstyle:staff-session';
@@ -255,6 +256,9 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/70">
+                v{APP_VERSION}
+              </span>
               <button
                 onClick={() => setIsHeaderCollapsed((current) => !current)}
                 className="tap-button grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur transition hover:bg-white/20"

@@ -573,7 +573,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 GRANT EXECUTE ON FUNCTION public.admin_check_coupon_code(text, numeric) TO anon, authenticated;
 
--- Add points from a paid purchase. PHP 100 = 1 point.
+-- Add points from a fully paid purchase. Sublimation/acrylic: PHP 300 = 1 point. Tarpaulin/other services: PHP 200 = 1 point.
 DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text);
 DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric);
 DROP FUNCTION IF EXISTS public.admin_add_purchase_points(uuid, text, numeric, text, numeric, text, numeric, text);
@@ -620,6 +620,7 @@ DECLARE
   v_paid_amount numeric(12,2);
   v_remaining_balance numeric(12,2);
   v_points_added numeric(12,2) := 0;
+  v_points_rate numeric(12,2) := 200;
   v_payment_status text := 'unpaid';
   v_coupon_discount numeric(10,2) := 0;
   v_points_to_use numeric(12,2) := COALESCE(p_points_to_use, 0);
@@ -632,6 +633,11 @@ BEGIN
   IF v_order_category NOT IN ('sublimation', 'acrylic_signs', 'tarpaulin_other_services') THEN
     RAISE EXCEPTION 'Invalid order category.';
   END IF;
+
+  v_points_rate := CASE
+    WHEN v_order_category IN ('sublimation', 'acrylic_signs') THEN 300
+    ELSE 200
+  END;
 
   IF p_purchase_amount <= 0 THEN
     RAISE EXCEPTION 'Purchase amount must be greater than zero.';
@@ -714,7 +720,7 @@ BEGIN
   END;
 
   IF v_payment_status = 'paid' THEN
-    v_points_added := round((v_paid_amount / 100.0)::numeric, 2);
+    v_points_added := round((v_paid_amount / v_points_rate)::numeric, 2);
   END IF;
 
   INSERT INTO public.orders (
@@ -860,10 +866,12 @@ DECLARE
   v_coupon_discount numeric(10,2) := 0;
   v_points_to_use numeric(12,2) := COALESCE(p_points_to_use, 0);
   v_points_added numeric(12,2) := 0;
+  v_points_rate numeric(12,2) := 200;
   v_balance numeric(12,2);
   v_balance_after_redeem numeric(12,2);
   v_payment_status text;
   v_existing_earn_count integer;
+  v_order_category text;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.staff WHERE id = p_staff_id AND is_active = true) THEN
     RAISE EXCEPTION 'Only active staff can add order payments.';
@@ -885,7 +893,8 @@ BEGIN
     o.points_discount_amount,
     o.total_amount,
     o.paid_amount,
-    o.payment_status
+    o.payment_status,
+    COALESCE(NULLIF(o.order_category, ''), 'tarpaulin_other_services')
   INTO
     v_customer_id,
     v_customer_name,
@@ -894,7 +903,8 @@ BEGIN
     v_current_points_discount,
     v_total_amount,
     v_current_paid,
-    v_payment_status
+    v_payment_status,
+    v_order_category
   FROM public.orders o
   JOIN public.customers c ON c.id = o.customer_id
   WHERE o.id = p_order_id
@@ -912,6 +922,11 @@ BEGIN
   IF v_payment_status = 'voided' THEN
     RAISE EXCEPTION 'Cannot accept payment for a voided order.';
   END IF;
+
+  v_points_rate := CASE
+    WHEN v_order_category IN ('sublimation', 'acrylic_signs') THEN 300
+    ELSE 200
+  END;
 
   v_subtotal_amount := COALESCE(v_subtotal_amount, v_total_amount + COALESCE(v_current_coupon_discount, 0) + COALESCE(v_current_points_discount, 0));
   v_current_coupon_discount := COALESCE(v_current_coupon_discount, 0);
@@ -1031,7 +1046,7 @@ BEGIN
       AND pt.type = 'earn';
 
     IF v_existing_earn_count = 0 THEN
-      v_points_added := round((v_new_paid / 100.0)::numeric, 2);
+      v_points_added := round((v_new_paid / v_points_rate)::numeric, 2);
 
       UPDATE public.customers
       SET points_balance = points_balance + v_points_added
@@ -1139,6 +1154,55 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 GRANT EXECUTE ON FUNCTION public.admin_delete_order_with_rfid(uuid, uuid, text) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_suki_customer_with_rfid(
+  p_staff_id uuid,
+  p_customer_id uuid,
+  p_staff_rfid_uid text
+)
+RETURNS void AS $$
+DECLARE
+  v_staff_rfid_uid text := trim(COALESCE(p_staff_rfid_uid, ''));
+BEGIN
+  IF v_staff_rfid_uid = '' THEN
+    RAISE EXCEPTION 'Admin RFID is required.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.staff
+    WHERE id = p_staff_id
+      AND is_active = true
+      AND rfid_uid = v_staff_rfid_uid
+  ) THEN
+    RAISE EXCEPTION 'RFID confirmation failed.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.customers
+    WHERE id = p_customer_id
+      AND is_active = true
+  ) THEN
+    RAISE EXCEPTION 'Suki member not found or already deleted.';
+  END IF;
+
+  UPDATE public.customers
+  SET is_active = false
+  WHERE id = p_customer_id;
+
+  UPDATE public.cards
+  SET is_active = false
+  WHERE customer_id = p_customer_id;
+
+  UPDATE public.coupon_redemptions
+  SET status = 'cancelled'
+  WHERE customer_id = p_customer_id
+    AND status = 'claimed';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+GRANT EXECUTE ON FUNCTION public.admin_delete_suki_customer_with_rfid(uuid, uuid, text) TO anon, authenticated;
 
 -- Deduct points as payment discount or redemption.
 CREATE OR REPLACE FUNCTION public.admin_deduct_points(

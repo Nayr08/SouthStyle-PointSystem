@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, IdCard, Phone, ScanLine, Search, ShoppingBag, Sparkles, UserRound, UsersRound, X } from 'lucide-react';
+import { ChevronRight, IdCard, Phone, ScanLine, Search, ShoppingBag, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
 import { formatCompactStatValue } from '@/lib/number-format';
@@ -67,6 +67,9 @@ export default function RegisterSukiPage() {
   const [memberOrders, setMemberOrders] = useState<CustomerOrder[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteMemberRfid, setDeleteMemberRfid] = useState('');
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -137,6 +140,44 @@ export default function RegisterSukiPage() {
           points_earned: Number(order.points_earned),
         })),
     );
+  };
+
+  const closeMemberProfile = () => {
+    setSelectedMember(null);
+    setIsOrdersModalOpen(false);
+    setIsDeleteConfirmOpen(false);
+    setDeleteMemberRfid('');
+  };
+
+  const deleteSukiMember = async () => {
+    if (!staff || !selectedMember) return;
+
+    const adminRfid = deleteMemberRfid.trim();
+
+    if (!adminRfid) {
+      toast.error('Scan your admin RFID card to confirm member deletion.');
+      return;
+    }
+
+    const memberName = selectedMember.full_name;
+    setIsDeletingMember(true);
+
+    const { error: deleteError } = await supabase.rpc('admin_delete_suki_customer_with_rfid', {
+      p_staff_id: staff.id,
+      p_customer_id: selectedMember.customer_id,
+      p_staff_rfid_uid: adminRfid,
+    });
+
+    setIsDeletingMember(false);
+
+    if (deleteError) {
+      toast.error(deleteError.message || 'Could not delete Suki member.');
+      return;
+    }
+
+    toast.success(`${memberName} has been removed from active Suki members.`);
+    closeMemberProfile();
+    await loadMembers();
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -500,7 +541,7 @@ export default function RegisterSukiPage() {
             type="button"
             aria-label="Close member details"
             className="absolute inset-0 cursor-default"
-            onClick={() => setSelectedMember(null)}
+            onClick={closeMemberProfile}
           />
           <section className="relative w-full max-w-lg rounded-[30px] border border-[#181d18]/12 bg-white p-5 shadow-2xl shadow-slate-950/20">
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -512,8 +553,7 @@ export default function RegisterSukiPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedMember(null);
-                  setIsOrdersModalOpen(false);
+                  closeMemberProfile();
                 }}
                 className="tap-button grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-500"
               >
@@ -553,7 +593,7 @@ export default function RegisterSukiPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => openMemberOrders(selectedMember)}
@@ -565,12 +605,100 @@ export default function RegisterSukiPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedMember(null);
-                  setIsOrdersModalOpen(false);
+                  setIsDeleteConfirmOpen(true);
+                  setDeleteMemberRfid('');
+                }}
+                disabled={isDeletingMember}
+                className="tap-button flex items-center justify-center gap-2 rounded-2xl bg-rose-500 px-4 py-4 text-sm font-black text-white shadow-lg shadow-rose-900/15 disabled:opacity-60"
+              >
+                <Trash2 size={17} />
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeMemberProfile();
                 }}
                 className="tap-button rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-black text-slate-700"
               >
                 Close
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedMember && isDeleteConfirmOpen && (
+        <div className="modal-pop fixed inset-0 z-[80] flex items-end bg-slate-950/55 p-4 sm:items-center sm:justify-center">
+          <button
+            type="button"
+            aria-label="Close delete member confirmation"
+            className="absolute inset-0 cursor-default"
+            onClick={() => {
+              setIsDeleteConfirmOpen(false);
+              setDeleteMemberRfid('');
+            }}
+          />
+          <section className="relative w-full max-w-sm rounded-[30px] border border-red-200 bg-white p-5 shadow-2xl shadow-slate-950/20">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-red-700">Confirm Delete</p>
+                <h3 className="mt-1 text-xl font-black text-slate-900">Delete {selectedMember.full_name}?</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                  This removes the member from active Suki access and disables their RFID/QR cards while keeping order history.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteConfirmOpen(false);
+                  setDeleteMemberRfid('');
+                }}
+                className="tap-button grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-500"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <label className="mt-5 grid gap-1">
+              <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Admin RFID</span>
+              <input
+                value={deleteMemberRfid}
+                onChange={(event) => setDeleteMemberRfid(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!isDeletingMember) {
+                      void deleteSukiMember();
+                    }
+                  }
+                }}
+                autoFocus
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 outline-none focus:border-red-400"
+                placeholder="Scan card now"
+              />
+            </label>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteConfirmOpen(false);
+                  setDeleteMemberRfid('');
+                }}
+                disabled={isDeletingMember}
+                className="tap-button rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-black text-slate-700 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteSukiMember}
+                disabled={isDeletingMember}
+                className="tap-button flex items-center justify-center gap-2 rounded-2xl bg-rose-500 px-4 py-4 text-sm font-black text-white shadow-lg shadow-rose-900/15 disabled:opacity-60"
+              >
+                <Trash2 size={18} />
+                {isDeletingMember ? 'Deleting...' : 'Confirm Delete'}
               </button>
             </div>
           </section>

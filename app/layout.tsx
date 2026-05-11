@@ -1,19 +1,7 @@
 ﻿import type { Metadata, Viewport } from 'next';
-import { Geist_Mono, Poppins } from 'next/font/google';
 import { AuthGate } from '@/components/AuthGate';
 import { Toaster } from 'react-hot-toast';
 import './globals.css';
-
-const poppins = Poppins({
-  variable: '--font-poppins',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Southstyle Suki Points',
@@ -35,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" className="h-full">
       <body>
         <AuthGate>{children}</AuthGate>
         <Toaster

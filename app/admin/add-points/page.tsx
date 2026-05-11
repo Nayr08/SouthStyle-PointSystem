@@ -6,7 +6,7 @@ import { BadgePlus, CheckCircle2, PhilippinePeso, Search, TicketPercent, UserRou
 import toast from 'react-hot-toast';
 import { AdminInput, AdminShell, FieldShell, useStaffSession } from '@/components/AdminShell';
 import { formatCompactStatValue } from '@/lib/number-format';
-import { defaultOrderCategory, orderCategories, type OrderCategory } from '@/lib/order-categories';
+import { defaultOrderCategory, getOrderCategoryPointsRate, orderCategories, type OrderCategory } from '@/lib/order-categories';
 import { type TierName } from '@/lib/tiers';
 import { supabase } from '@/lib/supabase/client';
 
@@ -112,6 +112,7 @@ export default function AddPointsPage() {
 
   const orderTotal = Number(purchaseAmount || 0);
   const downpayment = Number(downpaymentAmount || 0);
+  const pointsRate = getOrderCategoryPointsRate(orderCategory);
   const isOrderTotalValid = Number.isFinite(orderTotal) && orderTotal > 0;
   const isDownpaymentValid = paymentMode !== 'custom' || (Number.isFinite(downpayment) && downpayment >= 0);
   const couponLooksEntered = couponCode.trim().length > 0;
@@ -170,7 +171,7 @@ export default function AddPointsPage() {
       pointsUsed: draftTotals.pointsUsed,
       pointsEarned:
         draftTotals.amountDue > 0 && Math.max(draftTotals.amountDue - requestedPayment, 0) === 0
-          ? Number((requestedPayment / 100).toFixed(2))
+          ? Number((requestedPayment / pointsRate).toFixed(2))
           : 0,
     };
   }, [
@@ -180,6 +181,7 @@ export default function AddPointsPage() {
     draftTotals.pointsUsed,
     orderTotal,
     paymentMode,
+    pointsRate,
     result,
   ]);
 
@@ -727,7 +729,7 @@ export default function AddPointsPage() {
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Points To Earn</p>
                 <p title={`+${summary.pointsEarned.toFixed(2)} pts`} className="mt-2 truncate text-xl font-black tabular-nums text-slate-900">+{formatCompactStatValue(summary.pointsEarned)} pts</p>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                  Points are awarded only when remaining balance reaches zero.
+                  Points are awarded only when remaining balance reaches zero. Current rate: PHP {pointsRate.toFixed(0)} = 1 point.
                 </p>
               </div>
             </div>

@@ -1,8 +1,8 @@
-﻿@import "tailwindcss";
+﻿@import "../node_modules/tailwindcss/index.css";
 
 :root {
-  --font-geist-sans: var(--font-geist-sans);
-  --font-geist-mono: var(--font-geist-mono);
+  --font-geist-sans: "Segoe UI", Arial, system-ui, sans-serif;
+  --font-geist-mono: "Cascadia Mono", Consolas, monospace;
   --color-ss-black: #0b120d;
   --color-ss-charcoal: #111812;
   --color-ss-surface: #f4f7f2;

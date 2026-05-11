@@ -6,6 +6,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { AdminShellSkeleton } from '@/components/Skeletons';
+import { APP_VERSION } from '@/lib/app-version';
 
 export const STAFF_SESSION_KEY = 'southstyle:staff-session';
 
@@ -64,9 +65,14 @@ export function AdminShell({ title, subtitle, children }: { title: string; subti
                 <p className="mt-1 text-xs font-semibold text-white/70">{subtitle}</p>
               </div>
             </div>
-            <Link href="/admin" className="tap-button grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur" title="Back">
-              <ArrowLeft size={20} />
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/70">
+                v{APP_VERSION}
+              </span>
+              <Link href="/admin" className="tap-button grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur" title="Back">
+                <ArrowLeft size={20} />
+              </Link>
+            </div>
           </div>
         </div>
       </header>
