@@ -290,6 +290,100 @@ GRANT EXECUTE ON FUNCTION public.staff_phone_exists(text) TO anon, authenticated
 GRANT EXECUTE ON FUNCTION public.customer_login(text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.staff_login(text, text) TO anon, authenticated;
 
+-- Change the current staff/admin PIN after verifying the previous PIN.
+CREATE OR REPLACE FUNCTION public.staff_change_pin(
+  p_staff_id uuid,
+  p_current_pin text,
+  p_new_pin text
+)
+RETURNS void AS $$
+DECLARE
+  v_current_pin text := trim(COALESCE(p_current_pin, ''));
+  v_new_pin text := trim(COALESCE(p_new_pin, ''));
+  v_pin_hash text;
+BEGIN
+  IF v_current_pin !~ '^\d{4}$' THEN
+    RAISE EXCEPTION 'Current PIN must be exactly 4 digits.';
+  END IF;
+
+  IF v_new_pin !~ '^\d{4}$' THEN
+    RAISE EXCEPTION 'New PIN must be exactly 4 digits.';
+  END IF;
+
+  IF v_current_pin = v_new_pin THEN
+    RAISE EXCEPTION 'New PIN must be different from the current PIN.';
+  END IF;
+
+  SELECT pin_hash
+  INTO v_pin_hash
+  FROM public.staff
+  WHERE id = p_staff_id
+    AND is_active = true
+  FOR UPDATE;
+
+  IF v_pin_hash IS NULL THEN
+    RAISE EXCEPTION 'Staff account not found.';
+  END IF;
+
+  IF v_pin_hash <> extensions.crypt(v_current_pin, v_pin_hash) THEN
+    RAISE EXCEPTION 'Current PIN is incorrect.';
+  END IF;
+
+  UPDATE public.staff
+  SET pin_hash = extensions.crypt(v_new_pin, extensions.gen_salt('bf'))
+  WHERE id = p_staff_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+GRANT EXECUTE ON FUNCTION public.staff_change_pin(uuid, text, text) TO anon, authenticated;
+
+-- Change the current customer MPIN after verifying the previous MPIN.
+CREATE OR REPLACE FUNCTION public.customer_change_pin(
+  p_customer_id uuid,
+  p_current_pin text,
+  p_new_pin text
+)
+RETURNS void AS $$
+DECLARE
+  v_current_pin text := trim(COALESCE(p_current_pin, ''));
+  v_new_pin text := trim(COALESCE(p_new_pin, ''));
+  v_pin_hash text;
+BEGIN
+  IF v_current_pin !~ '^\d{4}$' THEN
+    RAISE EXCEPTION 'Current MPIN must be exactly 4 digits.';
+  END IF;
+
+  IF v_new_pin !~ '^\d{4}$' THEN
+    RAISE EXCEPTION 'New MPIN must be exactly 4 digits.';
+  END IF;
+
+  IF v_current_pin = v_new_pin THEN
+    RAISE EXCEPTION 'New MPIN must be different from the current MPIN.';
+  END IF;
+
+  SELECT pin_hash
+  INTO v_pin_hash
+  FROM public.customers
+  WHERE id = p_customer_id
+    AND is_active = true
+  FOR UPDATE;
+
+  IF v_pin_hash IS NULL THEN
+    RAISE EXCEPTION 'Customer account not found.';
+  END IF;
+
+  IF v_pin_hash <> extensions.crypt(v_current_pin, v_pin_hash) THEN
+    RAISE EXCEPTION 'Current MPIN is incorrect.';
+  END IF;
+
+  UPDATE public.customers
+  SET pin_hash = extensions.crypt(v_new_pin, extensions.gen_salt('bf'))
+  WHERE id = p_customer_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
+
+GRANT EXECUTE ON FUNCTION public.customer_change_pin(uuid, text, text) TO anon, authenticated;
+
 -- Register a new customer and create their backup QR/card record.
 CREATE OR REPLACE FUNCTION public.register_suki_customer(
   p_staff_id uuid,

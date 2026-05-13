@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { AdminChangePin } from '@/components/AdminChangePin';
 import { AdminShellSkeleton } from '@/components/Skeletons';
 import { APP_VERSION } from '@/lib/app-version';
 
@@ -69,6 +70,7 @@ export function AdminShell({ title, subtitle, children }: { title: string; subti
               <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/70">
                 v{APP_VERSION}
               </span>
+              <AdminChangePin staff={staff} />
               <Link href="/admin" className="tap-button grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur" title="Back">
                 <ArrowLeft size={20} />
               </Link>

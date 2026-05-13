@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import BottomNav from '@/components/BottomNav';
+import { CustomerChangePin } from '@/components/CustomerChangePin';
 import { AccountSkeleton } from '@/components/Skeletons';
 import { clearCustomerSession } from '@/lib/customer-session';
 import { useCustomerData } from '@/lib/customer-data';
@@ -118,6 +119,7 @@ export default function AccountPage() {
                   </Link>
                 );
               })}
+              <CustomerChangePin customerId={profile.id} />
             </div>
           </section>
 

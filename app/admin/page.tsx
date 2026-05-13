@@ -16,6 +16,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
+import { AdminChangePin } from '@/components/AdminChangePin';
 import { AdminDashboardSkeleton } from '@/components/Skeletons';
 import { APP_VERSION } from '@/lib/app-version';
 import { supabase } from '@/lib/supabase/client';
@@ -259,6 +260,7 @@ export default function AdminDashboardPage() {
               <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/70">
                 v{APP_VERSION}
               </span>
+              <AdminChangePin staff={staff} />
               <button
                 onClick={() => setIsHeaderCollapsed((current) => !current)}
                 className="tap-button grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur transition hover:bg-white/20"
